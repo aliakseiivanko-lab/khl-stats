@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Статистика КХЛ</title>
+<style>
+:root{--bg:#f6f7f9;--c:#fff;--t:#14171c;--m:#667085;--b:#e3e6eb;--a:#c8102e;color-scheme:light dark}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1115;--c:#181b21;--t:#e8eaee;--m:#8a93a3;--b:#2a2f38;--a:#ff4d62}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:15px/1.45 system-ui,sans-serif}
+main{max-width:780px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:0}h1 a{color:inherit;text-decoration:none}h2{font-size:18px;margin:14px 0 2px}
+.m{color:var(--m);font-size:13px}.row{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+button,select{font:inherit;border:1px solid var(--b);background:var(--c);color:var(--t);border-radius:8px;padding:6px 11px;cursor:pointer}
+button.on{background:var(--a);border-color:var(--a);color:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.card{background:var(--c);border:1px solid var(--b);border-radius:12px;padding:4px 14px;overflow-x:auto;margin-top:10px}
+table{width:100%;border-collapse:collapse}td,th{padding:5px 6px;text-align:right;white-space:nowrap}
+td:first-child,th:first-child{text-align:left}tr+tr td{border-top:1px solid var(--b)}
+tr.s td{color:var(--a);font-weight:600;font-size:12px;text-transform:uppercase;padding-top:12px}
+.d{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:3px;vertical-align:-1px}
+</style></head><body><main>
+<header><h1><a href="#">🏒 Статистика КХЛ</a></h1><div class="m" id="upd"></div></header>
+<div id="app">Загрузка…</div></main>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let M=[],T=[];
+const sum=a=>a.reduce((x,y)=>x+y,0),ok=(r,k)=>r.filter(x=>x[k]!=null);
+const avg=(r,k)=>{const v=ok(r,k);return v.length?sum(v.map(x=>x[k]))/v.length:null};
+const pair=(r,a,b)=>{const p=r.filter(x=>x[a]!=null&&x[b]!=null);return p.length?[sum(p.map(x=>x[a])),sum(p.map(x=>x[b]))]:null};
+const ratio=(r,a,b)=>{const p=pair(r,a,b);return p&&p[1]?p[0]/p[1]:null};
+const cov=(r,k)=>ok(r,k).length/r.length;
+const f=(v,d=1)=>v==null?'–':v.toFixed(d),sg=v=>v==null?'–':(v>=0?'+':'')+v.toFixed(1);
+const gp=p=>!p||!p[1]?'–':`${p[0]}/${p[1]}/${Math.round(100*p[0]/p[1])}%`;
+const pk=p=>!p||!p[1]?'–':`${p[0]}/${p[1]}/${100-Math.round(100*p[0]/p[1])}%`;
+const pct=p=>!p||!p[1]?null:100*p[0]/p[1],pkp=s=>{const p=pct(s.pk2);return p==null?null:100-p};
+const df=(a,b)=>a==null||b==null?null:a-b,ad=(a,b)=>a==null||b==null?null:a+b;
+function pov(m,t){const h=m.home===t,p=h?'home_':'away_',o=h?'away_':'home_',g=(s,k)=>m[s+k],gf=g(p,'goals'),ga=g(o,'goals');
+return{home:h,date:m.date,ot:m.ot,so:m.so,gf,ga,gfg:gf-(m.so&&gf>ga?1:0),gag:ga-(m.so&&ga>gf?1:0),sf:g(p,'shots'),sa:g(o,'shots'),
+ppg:g(p,'pp_goals'),ppo:g(p,'pp_opps'),ppga:g(o,'pp_goals'),ppoa:g(o,'pp_opps'),pim:g(p,'pim'),shg:g(p,'shg'),fo:g(p,'fo'),foa:g(o,'fo'),hit:g(p,'hits'),blk:g(p,'blocks')}}
+const season=()=>M.reduce((s,m)=>m.season>s?m.season:s,'');
+function sel(t,n,v,s){let ms=M.filter(m=>(m.home===t||m.away===t)&&(!s||m.season===s));
+if(v==='home')ms=ms.filter(m=>m.home===t);if(v==='away')ms=ms.filter(m=>m.away===t);
+ms.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);if(n)ms=ms.slice(-n);return ms.map(m=>pov(m,t))}
+function calc(r){const n=r.length;if(!n)return null;const w=r.filter(x=>x.gf>x.ga).length,
+pts=sum(r.map(x=>x.gf>x.ga?(x.ot?2:3):(x.ot?1:0))),sh=ratio(r,'gfg','sf'),sv=ratio(r,'gag','sa'),fo=pair(r,'fo','foa'),shg=ok(r,'shg');
+return{gp:n,w,l:n-w,ot:r.filter(x=>x.ot).length,pts_pg:pts/n,gf:sum(r.map(x=>x.gfg))/n,ga:sum(r.map(x=>x.gag))/n,
+sho:r.filter(x=>x.ga===0&&!x.so).length,sf:avg(r,'sf'),sa:avg(r,'sa'),sh:sh==null?null:100*sh,sv:sv==null?null:100*(1-sv),
+pp2:pair(r,'ppg','ppo'),pk2:pair(r,'ppga','ppoa'),shgS:shg.length?sum(shg.map(x=>x.shg)):null,pim:avg(r,'pim'),
+fo_pct:!fo||!(fo[0]+fo[1])?null:100*fo[0]/(fo[0]+fo[1]),blk:avg(r,'blk'),hit:avg(r,'hit'),
+ppgS:sum(ok(r,'ppg').map(x=>x.ppg)),ppgaS:sum(ok(r,'ppga').map(x=>x.ppga)),
+c_pim:cov(r,'pim'),c_ppo:cov(r,'ppo'),c_shg:cov(r,'shg'),c_fo:cov(r,'fo'),c_blk:cov(r,'blk'),c_hit:cov(r,'hit')}}
+const need=(k,fn,n=.6)=>s=>s[k]>=n?fn(s):'–';
+const SECT=[['Результаты',[['Матчей',s=>s.gp],['Победы-пораж.',s=>s.w+'-'+s.l],['Очки за матч',s=>f(s.pts_pg,2)],['Матчей в ОТ/Б',s=>s.ot]]],
+['Голы',[['Забито за матч',s=>f(s.gf)],['Пропущено за матч',s=>f(s.ga)],['Сухих матчей',s=>s.sho]]],
+['Спецбригады',[['Голы в больш.',need('c_pim',s=>s.ppgS)],['Пропущено в меньш.',need('c_pim',s=>s.ppgaS)],
+['Большинство',need('c_ppo',s=>gp(s.pp2),.2)],['Меньшинство',need('c_ppo',s=>pk(s.pk2),.2)],
+['Забито в меньш.',need('c_shg',s=>s.shgS==null?'–':s.shgS)],['Штраф, мин/матч',need('c_pim',s=>f(s.pim))]]],
+['Игра',[['Вбрасывания, %',need('c_fo',s=>f(s.fo_pct,0))],['Блок. броски/матч',need('c_blk',s=>f(s.blk))],['Силовые/матч',need('c_hit',s=>f(s.hit))]]],
+['Броски',[['Броски/матч',s=>f(s.sf)],['Броски пр./матч',s=>f(s.sa)],['Реализация, %',s=>f(s.sh)],['Сейвы, %',s=>f(s.sv)]]]];
+function table(cols){let h='<table>';if(cols.length>1)h+='<tr><th></th>'+cols.map(c=>`<th>${esc(c[0])}</th>`).join('')+'</tr>';
+for(const[t,rows]of SECT){let b='';for(const[l,fn]of rows){const c=cols.map(x=>x[1]?String(fn(x[1])):'–');
+if(c.every(x=>x==='–'))continue;b+=`<tr><td>${l}</td>`+c.map(x=>`<td>${x}</td>`).join('')+'</tr>'}
+if(b)h+=`<tr class="s"><td colspan="${cols.length+1}">${t}</td></tr>`+b}return h+'</table>'}
+const dot=x=>`<span class="d" style="background:${x.gf>x.ga?'#22a559':x.ot?'#f08a24':'#e5484d'}"></span>`;
+const form=r=>r.slice(-5).map(dot).join('')||'–';
+const plural=(n,w)=>{const a=n%10,b=n%100;return a===1&&b!==11?w[0]:a>=2&&a<=4&&!(b>=12&&b<=14)?w[1]:w[2]};
+function streak(r){if(!r.length)return'–';const win=r.at(-1).gf>r.at(-1).ga;let c=0;
+for(let i=r.length-1;i>=0&&(r[i].gf>r[i].ga)===win;i--)c++;
+return c+' '+(win?plural(c,['победа','победы','побед']):plural(c,['поражение','поражения','поражений']))+(c>1?' подряд':'')}
+const LEG='<p class="m">Большинство: голы / большинств / %. Меньшинство: пропущено / меньшинств / % отыграно.<br>🟢 победа · 🟠 проигрыш в ОТ/буллитах · 🔴 проигрыш</p>';
+const VT={all:'все матчи',home:'домашние матчи',away:'гостевые матчи'};
+
+const CATS=[
+['pts','Очки','Очки за матч',[['И',s=>s.gp],['В-П',s=>s.w+'-'+s.l],['О/м',s=>f(s.pts_pg,2)]],s=>s.pts_pg,1],
+['gls','Голы','Голы за матч',[['ЗБ/м',s=>f(s.gf)],['ПР/м',s=>f(s.ga)],['±/м',s=>sg(s.gf-s.ga)]],s=>s.gf-s.ga,1],
+['pp','Большинство','Большинство (голы / большинств / %)',[['Г/Б',s=>s.pp2&&s.pp2[1]?s.pp2.join('/'):'–'],['%',s=>f(pct(s.pp2))]],s=>pct(s.pp2),1],
+['pk','Меньшинство','Меньшинство (пропущено / меньшинств / % отыграно)',[['Пр/М',s=>s.pk2&&s.pk2[1]?s.pk2.join('/'):'–'],['%',s=>f(pkp(s))]],pkp,1],
+['pim','Штраф','Штрафные минуты за матч (меньше — выше)',[['И',s=>s.gp],['Мин/м',s=>f(s.pim)]],s=>s.pim,0],
+['fo','Вбрасывания','Выигранные вбрасывания, %',[['И',s=>s.gp],['Вбр%',s=>f(s.fo_pct)]],s=>s.fo_pct,1],
+['sh','Броски','Броски в створ за матч',[['Бр/м',s=>f(s.sf)],['Бр.пр',s=>f(s.sa)],['Разн',s=>sg(df(s.sf,s.sa))]],s=>df(s.sf,s.sa),1],
+['eff','Реализация','Реализация и сейвы, % (PDO = сумма)',[['Реал',s=>f(s.sh)],['Сейв',s=>f(s.sv)],['PDO',s=>f(ad(s.sh,s.sv))]],s=>ad(s.sh,s.sv),1],
+['blk','Блоки','Блокированные броски за матч',[['И',s=>s.gp],['Бл/м',s=>f(s.blk)]],s=>s.blk,1],
+['hit','Силовые','Силовые приёмы за матч',[['И',s=>s.gp],['Сил/м',s=>f(s.hit)]],s=>s.hit,1]];
+
+const P=()=>Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+const WIN=[['5','5 игр'],['10','10 игр'],['20','20 игр'],['s','Сезон']],VEN=[['all','Все'],['home','Дома'],['away','На выезде']];
+const go=(o,cur=P())=>`data-go="${esc(new URLSearchParams({...cur,...o}).toString())}"`;
+const chips=(list,cur,key,p)=>`<div class="row">${list.map(([k,l])=>`<button class="${cur===k?'on':''}" ${go({[key]:k},p)}>${l}</button>`).join('')}</div>`;
+const nWin=w=>w==='s'||!w?null:+w,per=w=>nWin(w)?`последние ${w} матчей`:'весь сезон';
+
+function vTeam(p){const t=p.t,s=season(),v=p.venue||'all',w=p.win||'s';
+if(!T.includes(t))return vList();
+let h=`<h2>${esc(t)}</h2><div class="m">Сезон ${s}</div>`,body;
+const all=sel(t,null,'all',s),ex=[['team',null,'Отчёт'],['cmp',null,'⚖️ Дом vs выезд'],['last',null,'🕐 Последняя игра']];
+const mode=v==='cmp'||v==='last'?v:'team';
+h+=`<div class="row">${[['team','Отчёт'],['cmp','⚖️ Дом vs выезд'],['last','🕐 Последняя игра']].map(([k,l])=>
+`<button class="${mode===k?'on':''}" ${go({venue:k==='team'?'all':k,win:'s'},p)}>${l}</button>`).join('')}
+<button data-go="view=vs&a=${encodeURIComponent(t)}&b=&venue=all&win=s">⚔️ Сравнить с…</button></div>`;
+if(mode==='team'){const r=sel(t,nWin(w),v,s);
+h+=chips(WIN,w,'win',p)+chips(VEN,v,'venue',p)+`<div class="m">${VT[v]} · ${per(w)}</div>`;
+if(!r.length)return h+'<p>Матчей по этому фильтру пока нет.</p>';
+const a=sel(t,null,v,s);h+=`<p>Форма: ${form(a)}<br>Серия: ${streak(a)}</p><div class="card">${table([['',calc(r)]])}</div>`+LEG+note(r)}
+else if(mode==='cmp'){const H=sel(t,null,'home',s),A=sel(t,null,'away',s);
+h+=`<p>Форма дома: ${form(H)}<br>Форма на выезде: ${form(A)}</p><div class="card">${table([['Дома',calc(H)],['Выезд',calc(A)]])}</div>`+LEG+note(H.concat(A))}
+else h+=vLast(t,s);
+return h}
+const note=r=>{const n=r.filter(x=>x.ppo!=null).length;return r.length&&n<r.length?`<p class="m">ℹ️ Число большинств есть не для всех матчей (${n} из ${r.length}).</p>`:''};
+function vLast(t,s){const ms=M.filter(m=>(m.home===t||m.away===t)&&m.season===s).sort((a,b)=>a.date<b.date?-1:1),m=ms.at(-1);
+if(!m)return'<p>Матчей пока нет.</p>';const o=m.home===t?m.away:m.home,me=pov(m,t),op=pov(m,o),d=m.date.split('-').reverse().join('.');
+const res=me.gf>me.ot*0+me.ga?'🟢 Победа'+(m.so?' по буллитам':m.ot?' в ОТ':''):m.ot?'🟠 Поражение'+(m.so?' по буллитам':' в ОТ'):'🔴 Поражение';
+const n=x=>x==null?'–':x,pr=(g,k)=>g==null||k==null?'–':g+'/'+k,fo=r=>r.fo==null||r.foa==null||!(r.fo+r.foa)?'–':`${r.fo} (${Math.round(100*r.fo/(r.fo+r.foa))}%)`;
+const R=[['Броски',r=>n(r.sf)],['Большинство',r=>pr(r.ppg,r.ppo)],['Штраф, мин',r=>n(r.pim)],['Забито в меньш.',r=>n(r.shg)],['Вбрасывания',fo],['Блок. броски',r=>n(r.blk)],['Силовые',r=>n(r.hit)]]
+.map(([l,fn])=>[l,fn(me),fn(op)]).filter(x=>x[1]!=='–'||x[2]!=='–');
+return `<div class="m">последняя игра · ${d}</div><h2>${esc(m.home)} ${m.home_goals}:${m.away_goals} ${esc(m.away)}${m.so?' (Б)':m.ot?' (ОТ)':''}</h2><p>${res} · ${me.home?'дома':'на выезде'}</p>`+
+(R.length?`<div class="card"><table><tr><th></th><th>Свои</th><th>Соперн.</th></tr>${R.map(x=>`<tr><td>${x[0]}</td><td>${x[1]}</td><td>${x[2]}</td></tr>`).join('')}</table></div>`:'<p class="m">Подробной статистики пока нет.</p>')}
+
+function vLeague(p){const cat=CATS.find(c=>c[0]===p.cat)||CATS[0],v=p.venue||'all',w=p.win||'s',s=season();
+const data=T.map(t=>[t,calc(sel(t,nWin(w),v,s))]).filter(x=>x[1]);
+data.sort((a,b)=>{const x=cat[4](a[1]),y=cat[4](b[1]);return x==null?1:y==null?-1:cat[5]?y-x:x-y});
+return `<h2>Лига · ${cat[2]}</h2><div class="m">${VT[v]} · ${per(w)} · Сезон ${s}</div>`+chips(WIN,w,'win',p)+chips(VEN,v,'venue',p)+
+chips(CATS.map(c=>[c[0],c[1]]),cat[0],'cat',p)+`<div class="card"><table><tr><th>#  Команда</th>${cat[3].map(c=>`<th>${c[0]}</th>`).join('')}</tr>`+
+data.map(([t,x],i)=>`<tr><td>${i+1}. <a href="#" style="color:inherit" ${go({view:'team',t,venue:'all',win:'s'},{})}>${esc(t)}</a></td>${cat[3].map(c=>`<td>${c[1](x)}</td>`).join('')}</tr>`).join('')+'</table></div>'}
+
+function vVs(p){const a=p.a,b=p.b,s=season(),v=p.venue||'all',w=p.win||'s';
+const selb=(k,cur)=>`<select data-sel="${k}"><option value="">— команда —</option>${T.map(t=>`<option ${t===cur?'selected':''}>${esc(t)}</option>`).join('')}</select>`;
+let h=`<h2>Сравнение команд</h2><div class="row">${selb('a',a)} vs ${selb('b',b)}${a&&b?`<button ${go({a:b,b:a},p)}>🔄</button>`:''}</div>`;
+if(!T.includes(a)||!T.includes(b)||a===b)return h+'<p class="m">Выбери две разные команды.</p>';
+const ha=v==='ha',ra=sel(a,nWin(w),ha?'home':'all',s),rb=sel(b,nWin(w),ha?'away':'all',s);
+h+=chips(WIN,w,'win',p)+chips([['all','Все матчи'],['ha','1-я дома · 2-я в гостях']],v,'venue',p)+`<div class="m">${per(w)} · Сезон ${s}</div><p>Форма ${esc(a)}: ${form(ra)}<br>Форма ${esc(b)}: ${form(rb)}</p>`;
+return !ra.length||!rb.length?h+'<p>У одной из команд нет матчей по этому фильтру.</p>':h+`<div class="card">${table([[a,calc(ra)],[b,calc(rb)]])}</div>`+LEG}
+
+function vList(){return `<div class="row"><button ${go({view:'league',cat:'pts',venue:'all',win:'s'},{})}>📊 Таблица лиги</button><button data-go="view=vs&a=&b=&venue=all&win=s">⚔️ Сравнить две команды</button></div>
+<div class="grid">${T.map(t=>`<button ${go({view:'team',t,venue:'all',win:'s'},{})}>${esc(t)}</button>`).join('')}</div>`}
+
+function render(){const p=P(),el=$('#app');
+if(!M.length){el.innerHTML='<p>Данных пока нет — дождись первого запуска обновления (см. README).</p>';return}
+el.innerHTML=p.view==='team'?vTeam(p):p.view==='league'?vLeague(p):p.view==='vs'?vVs(p):vList()}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(!b)return;e.preventDefault();
+const q=new URLSearchParams(b.dataset.go),cur=P(),n={};
+// view сохраняется из текущей страницы, если кнопка его не задаёт
+if(!q.has('view'))n.view=cur.view;for(const[k,v]of q)n[k]=v;
+if(!q.has('view')&&cur.view==='team'&&!q.has('t'))n.t=cur.t;
+location.hash=new URLSearchParams({...cur,...n}).toString()});
+document.addEventListener('change',e=>{const s=e.target.closest('[data-sel]');if(!s)return;const p=P();p[s.dataset.sel]=s.value;location.hash=new URLSearchParams(p).toString()});
+addEventListener('hashchange',render);
+fetch('data/matches.json',{cache:'no-cache'}).then(r=>r.json()).then(d=>{M=d.matches;T=[...new Set(M.flatMap(m=>[m.home,m.away]))].sort();
+if(d.updated)$('#upd').textContent='Обновлено: '+new Date(d.updated).toLocaleString('ru-RU',{dateStyle:'short',timeStyle:'short'});render()})
+.catch(()=>$('#app').textContent='Не удалось загрузить data/matches.json (локально открывай через: python -m http.server)');
+</script></body></html>

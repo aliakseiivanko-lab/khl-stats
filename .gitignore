@@ -1,0 +1,3 @@
+data/**/*.pdf
+data/**/_debug/
+__pycache__/

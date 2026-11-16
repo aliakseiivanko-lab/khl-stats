@@ -1,0 +1,47 @@
+name: update-and-deploy
+on:
+  schedule:
+    - cron: "0 14 * * *"   # 17:00 МСК (UTC+3)
+    - cron: "0 20 * * *"   # 23:00 МСК
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["site/**", "scripts/**", ".github/workflows/**"]
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.d.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pypdf
+      - name: Скачать и разобрать протоколы
+        continue-on-error: true      # если khl.ru недоступен, сайт всё равно выкатится со старыми данными
+        run: python scripts/update_data.py
+        env:
+          KHL_SEASON_ID: "1436"
+          KHL_FIRST_ID: "901978"
+          KHL_LAST_ID: "0"
+          KHL_LOOKAHEAD: "120"
+          PDF_DIR: data
+          KHL_COOKIE: ${{ secrets.KHL_COOKIE }}
+      - name: Сохранить данные в репозиторий
+        run: |
+          git config user.name github-actions
+          git config user.email actions@github.com
+          git add -A data site/data
+          git diff --cached --quiet || (git commit -m "data: update" && git push)
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: site }
+      - id: d
+        uses: actions/deploy-pages@v4
