@@ -30,7 +30,8 @@ jobs:
         run: python scripts/update_data.py
         env:
           KHL_SEASON_ID: "1436"
-          KHL_FIRST_ID: "901978"
+          KHL_FIRST_ID: "90400"
+          KHL_MISS_RETRY_H: "1"
           KHL_LAST_ID: "0"
           KHL_LOOKAHEAD: "120"
           PDF_DIR: data
