@@ -43,7 +43,7 @@ tr.s td{color:var(--a);font-weight:700;font-size:11px;letter-spacing:.8px;text-t
 <div id="app">Загрузка…</div></main>
 <script>
 const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let M=[],T=[];
+let M=[],T=[],PG=[];
 const sum=a=>a.reduce((x,y)=>x+y,0),ok=(r,k)=>r.filter(x=>x[k]!=null);
 const avg=(r,k)=>{const v=ok(r,k);return v.length?sum(v.map(x=>x[k]))/v.length:null};
 const pair=(r,a,b)=>{const p=r.filter(x=>x[a]!=null&&x[b]!=null);return p.length?[sum(p.map(x=>x[a])),sum(p.map(x=>x[b]))]:null};
@@ -112,9 +112,9 @@ function vTeam(p){const t=p.t,s=season(),v=p.venue||'all',w=p.win||'s';
 if(!T.includes(t))return vList();
 let h=`<div class="hero"><h2>${esc(t)}</h2><div class="m">Сезон ${s}</div></div>`,body;
 const all=sel(t,null,'all',s),ex=[['team',null,'Отчёт'],['cmp',null,'⚖️ Дом vs выезд'],['last',null,'🕐 Последняя игра']];
-const mode=v==='cmp'||v==='last'?v:'team';
-h+=`<div class="row">${[['team','Отчёт'],['cmp','⚖️ Дом vs выезд'],['last','🕐 Последняя игра']].map(([k,l])=>
-`<button class="${mode===k?'on':''}" ${go({venue:k==='team'?'all':k,win:'s'},p)}>${l}</button>`).join('')}
+const mode=p.tab==='roster'?'roster':v==='cmp'||v==='last'?v:'team';
+h+=`<div class="row">${[['team','Отчёт'],['roster','👥 Состав'],['cmp','⚖️ Дом vs выезд'],['last','🕐 Последняя игра']].map(([k,l])=>
+`<button class="${mode===k?'on':''}" ${go({tab:k==='roster'?'roster':'',venue:k==='team'||k==='roster'?'all':k,win:'s'},p)}>${l}</button>`).join('')}
 <button data-go="view=vs&a=${encodeURIComponent(t)}&b=&venue=all&win=s">⚔️ Сравнить с…</button></div>`;
 if(mode==='team'){const r=sel(t,nWin(w),v,s);
 h+=chips(WIN,w,'win',p)+chips(VEN,v,'venue',p)+`<div class="m">${VT[v]} · ${per(w)}</div>`;
@@ -122,9 +122,32 @@ if(!r.length)return h+'<p>Матчей по этому фильтру пока �
 const a=sel(t,null,v,s);h+=`<div class="pills"><span>Форма ${form(a)}</span><span>Серия: ${streak(a)}</span></div>${kpi(calc(r))}<div class="card">${table([['',calc(r)]])}</div>`+LEG+note(r)}
 else if(mode==='cmp'){const H=sel(t,null,'home',s),A=sel(t,null,'away',s);
 h+=`<p>Форма дома: ${form(H)}<br>Форма на выезде: ${form(A)}</p><div class="card">${table([['Дома',calc(H)],['Выезд',calc(A)]])}</div>`+LEG+note(H.concat(A))}
-else h+=vLast(t,s);
+else if(mode==='last')h+=vLast(t,s);
+else h+=chips(WIN,w,'win',p)+chips(VEN,v,'venue',p)+`<div class="m">${VT[v]} · ${per(w)}</div>`+roster(t,s,v,w,p);
 return h}
 const kpi=s=>`<div class="kpi">${[['Очки за матч',f(s.pts_pg,2)],['Победы–пораж.',s.w+'–'+s.l],['Забито за матч',f(s.gf)],['Пропущено за матч',f(s.ga)]].map(([l,v])=>`<div><b>${v}</b><span>${l}</span></div>`).join('')}</div>`;
+const mmss=x=>x==null?'–':Math.floor(x/60)+':'+String(Math.floor(x%60)).padStart(2,'0'),sgn=v=>v>0?'+'+v:v;
+const seasonOf=d=>{const y=+d.slice(0,4),st=+d.slice(5,7)>=7?y:y-1;return st+'/'+String((st+1)%100).padStart(2,'0')};
+const SKC=[['gp','И',s=>s.gp],['g','Ш',s=>s.g],['a','А',s=>s.a],['pts','О',s=>s.g+s.a],['pm','+/-',s=>s.pm,sgn],['pim','Штр',s=>s.pim],
+['sog','Бр',s=>s.bs],['blk','Бл',s=>s.blk],['hit','Сил',s=>s.hit],['fo','Вбр%',s=>s.fo>=10?100*s.fow/s.fo:null,v=>v.toFixed(0)],['toi','Время',s=>s.toi/s.gp,mmss]];
+function roster(t,s,v,w,p){
+let gs=PG.filter(x=>(x.h===t||x.a===t)&&seasonOf(x.d)===s&&(v==='all'||(v==='home'?x.h===t:x.a===t)));
+gs.sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:a.id-b.id);const n=nWin(w);if(n)gs=gs.slice(-n);
+if(!gs.length)return'<p class="m">Данных по составам пока нет: они появятся после следующего обновления.</p>';
+const A=new Map();
+for(const x of gs){const sd=x.h===t?0:1;for(const r of x.p){if(r[0]!==sd)continue;const k=r[2];
+let o=A.get(k);if(!o)A.set(k,o={n:r[1],name:k,pos:r[3],gp:0,toi:0,g:0,a:0,pm:0,pim:0,bs:0,blk:0,hit:0,fo:0,fow:0,ga:0,sa:0});
+o.gp++;o.n=r[1];o.toi+=r[4];if(r[3]==='в'){o.ga+=r[20]||0;o.sa+=r[21]||0;continue}
+o.g+=r[6];o.a+=r[7];o.pm+=r[8];o.pim+=r[10];o.bs+=r[12];o.blk+=r[14];o.hit+=r[15];o.fo+=r[18];o.fow+=r[19]}}
+const all=[...A.values()],sk=all.filter(o=>o.pos!=='в'),gk=all.filter(o=>o.pos==='в').sort((a,b)=>b.toi-a.toi);
+const key=p.sort||'pts',col=SKC.find(c=>c[0]===key)||SKC[3],val=o=>col[2](o);
+sk.sort((a,b)=>{const x=val(a),y=val(b);return x==null?1:y==null?-1:y-x||b.g-a.g});
+const nm=o=>`<span class="rk">${o.n}</span>${esc(o.name)}`;
+let h=`<div class="card"><table><tr><th>Полевые · ${gs.length} игр</th><th>Поз</th>${SKC.map(c=>`<th style="cursor:pointer;${c[0]===col[0]?'color:var(--a)':''}" ${go({sort:c[0]},p)}>${c[1]}${c[0]===col[0]?' ▾':''}</th>`).join('')}</tr>`+
+sk.map(o=>`<tr><td>${nm(o)}</td><td>${o.pos==='з'?'З':'Н'}</td>${SKC.map(c=>{const x=c[2](o);return`<td>${x==null?'–':c[3]?c[3](x):x}</td>`}).join('')}</tr>`).join('')+'</table></div>';
+if(gk.length)h+=`<div class="card"><table><tr><th>Вратари</th><th>И</th><th>Время</th><th>ПШ</th><th>Бр</th><th>Сейвы%</th><th>КН</th></tr>`+
+gk.map(o=>`<tr><td>${nm(o)}</td><td>${o.gp}</td><td>${mmss(o.toi)}</td><td>${o.ga}</td><td>${o.sa}</td><td>${o.sa?(100*(1-o.ga/o.sa)).toFixed(1):'–'}</td><td>${o.toi?(o.ga*3600/o.toi).toFixed(2):'–'}</td></tr>`).join('')+'</table></div>';
+return h+'<p class="m">Нажми на заголовок колонки, чтобы отсортировать. Ш — голы, А — передачи, О — очки, Бр — броски в створ, Бл — блок-шоты, Сил — силовые, Вр — среднее время за матч. +/- не учитывает голы в большинстве. За период берутся последние матчи команды.</p>'}
 const note=r=>{const n=r.filter(x=>x.ppo!=null).length;return r.length&&n<r.length?`<p class="m">ℹ️ Число большинств есть не для всех матчей (${n} из ${r.length}).</p>`:''};
 function vLast(t,s){const ms=M.filter(m=>(m.home===t||m.away===t)&&m.season===s).sort((a,b)=>a.date<b.date?-1:1),m=ms.at(-1);
 if(!m)return'<p>Матчей пока нет.</p>';const o=m.home===t?m.away:m.home,me=pov(m,t),op=pov(m,o),d=m.date.split('-').reverse().join('.');
@@ -167,6 +190,6 @@ document.addEventListener('change',e=>{const s=e.target.closest('[data-sel]');if
 document.addEventListener('input',e=>{if(e.target.id!=='q')return;const v=e.target.value.toLowerCase();document.querySelectorAll('#tg button').forEach(b=>b.hidden=!b.textContent.toLowerCase().includes(v))});
 addEventListener('hashchange',render);
 fetch('data/matches.json',{cache:'no-cache'}).then(r=>r.json()).then(d=>{M=d.matches;T=[...new Set(M.flatMap(m=>[m.home,m.away]))].sort();
-if(d.updated)$('#upd').textContent='Обновлено: '+new Date(d.updated).toLocaleString('ru-RU',{dateStyle:'short',timeStyle:'short'});render()})
+if(d.updated)$('#upd').textContent='Обновлено: '+new Date(d.updated).toLocaleString('ru-RU',{dateStyle:'short',timeStyle:'short'});render();return fetch('data/players.json').then(r=>r.json()).then(d=>{PG=d.games||[];render()}).catch(()=>{})})
 .catch(()=>$('#app').textContent='Не удалось загрузить data/matches.json (локально открывай через: python -m http.server)');
 </script></body></html>
