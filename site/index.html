@@ -3,22 +3,43 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Статистика КХЛ</title>
 <style>
-:root{--bg:#f6f7f9;--c:#fff;--t:#14171c;--m:#667085;--b:#e3e6eb;--a:#c8102e;color-scheme:light dark}
-@media(prefers-color-scheme:dark){:root{--bg:#0f1115;--c:#181b21;--t:#e8eaee;--m:#8a93a3;--b:#2a2f38;--a:#ff4d62}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:15px/1.45 system-ui,sans-serif}
-main{max-width:780px;margin:0 auto;padding:16px}
-h1{font-size:20px;margin:0}h1 a{color:inherit;text-decoration:none}h2{font-size:18px;margin:14px 0 2px}
-.m{color:var(--m);font-size:13px}.row{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
-button,select{font:inherit;border:1px solid var(--b);background:var(--c);color:var(--t);border-radius:8px;padding:6px 11px;cursor:pointer}
-button.on{background:var(--a);border-color:var(--a);color:#fff}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
-.card{background:var(--c);border:1px solid var(--b);border-radius:12px;padding:4px 14px;overflow-x:auto;margin-top:10px}
-table{width:100%;border-collapse:collapse}td,th{padding:5px 6px;text-align:right;white-space:nowrap}
-td:first-child,th:first-child{text-align:left}tr+tr td{border-top:1px solid var(--b)}
-tr.s td{color:var(--a);font-weight:600;font-size:12px;text-transform:uppercase;padding-top:12px}
+:root{--bg:#f3f4f7;--c:#fff;--t:#14171c;--m:#6b7280;--b:#e5e7eb;--a:#c8102e;--a2:#fde8eb;--sh:0 1px 2px #0001,0 4px 14px #0000000d;color-scheme:light dark}
+@media(prefers-color-scheme:dark){:root{--bg:#0d0f13;--c:#171a20;--t:#eceef2;--m:#8b93a1;--b:#262b34;--a:#ff4d62;--a2:#2a1519;--sh:none}}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--t);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:820px;margin:0 auto;padding:0 14px 40px}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:16px 0 6px}
+h1{font-size:21px;margin:0;letter-spacing:-.3px}h1 a{color:inherit;text-decoration:none}
+nav{position:sticky;top:0;z-index:5;display:flex;gap:4px;padding:8px 0;background:var(--bg);overflow-x:auto}
+nav a{padding:8px 14px;border-radius:999px;color:var(--m);text-decoration:none;font-weight:600;white-space:nowrap}
+nav a.on{background:var(--a);color:#fff}
+h2{font-size:26px;margin:0;letter-spacing:-.5px}.hero{padding:10px 0 2px}
+.m{color:var(--m);font-size:13px}.row{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+button,select,input{font:inherit;color:var(--t);background:var(--c);border:1px solid var(--b);border-radius:10px;padding:8px 13px;cursor:pointer;transition:.15s}
+button:hover{border-color:var(--a)}button.on{background:var(--a);border-color:var(--a);color:#fff}
+.seg{display:inline-flex;flex-wrap:wrap;gap:2px;background:var(--b);padding:3px;border-radius:12px;margin:6px 6px 6px 0}
+.seg button{border:0;background:none;padding:6px 12px;border-radius:9px;color:var(--m);font-weight:600}
+.seg button.on{background:var(--c);color:var(--t);box-shadow:var(--sh)}
+input[type=search]{width:100%;margin:6px 0 10px;padding:11px 14px;cursor:text}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.grid button{padding:14px;font-weight:600;text-align:left;box-shadow:var(--sh)}
+.card{background:var(--c);border:1px solid var(--b);border-radius:16px;padding:4px 16px;overflow-x:auto;margin-top:12px;box-shadow:var(--sh)}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}td,th{padding:8px 6px;text-align:right;white-space:nowrap}
+th{color:var(--m);font-size:12px;font-weight:600}
+td:first-child,th:first-child{text-align:left;position:sticky;left:0;background:var(--c)}
+tr+tr td{border-top:1px solid var(--b)}tr:hover td{background:var(--a2)}
+tr.s td{color:var(--a);font-weight:700;font-size:11px;letter-spacing:.8px;text-transform:uppercase;padding-top:16px;border-top:0}tr.s:hover td{background:var(--c)}
+.pills{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.pills span{background:var(--c);border:1px solid var(--b);border-radius:999px;padding:5px 12px;font-size:13px}
+.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.kpi div{background:var(--c);border:1px solid var(--b);border-radius:14px;padding:12px;box-shadow:var(--sh)}
+.kpi b{display:block;font-size:24px;letter-spacing:-.5px}.kpi span{color:var(--m);font-size:12px}
+@media(max-width:520px){.kpi{grid-template-columns:repeat(2,1fr)}}
 .d{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:3px;vertical-align:-1px}
+.rk{display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;border-radius:50%;font-size:12px;font-weight:700;margin-right:8px;color:var(--m);background:var(--b)}
+.r1{background:#f5c542;color:#4a3800}.r2{background:#c9ced6;color:#333}.r3{background:#d99a6c;color:#3d2410}
 </style></head><body><main>
 <header><h1><a href="#">🏒 Статистика КХЛ</a></h1><div class="m" id="upd"></div></header>
+<nav id="nav"><a data-v="list" href="#">Команды</a><a data-v="league" href="#view=league&cat=pts&venue=all&win=s">Таблица лиги</a><a data-v="vs" href="#view=vs&a=&b=&venue=all&win=s">Сравнение</a></nav>
 <div id="app">Загрузка…</div></main>
 <script>
 const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -84,12 +105,12 @@ const CATS=[
 const P=()=>Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
 const WIN=[['5','5 игр'],['10','10 игр'],['20','20 игр'],['s','Сезон']],VEN=[['all','Все'],['home','Дома'],['away','На выезде']];
 const go=(o,cur=P())=>`data-go="${esc(new URLSearchParams({...cur,...o}).toString())}"`;
-const chips=(list,cur,key,p)=>`<div class="row">${list.map(([k,l])=>`<button class="${cur===k?'on':''}" ${go({[key]:k},p)}>${l}</button>`).join('')}</div>`;
+const chips=(list,cur,key,p)=>`<div class="seg">${list.map(([k,l])=>`<button class="${cur===k?'on':''}" ${go({[key]:k},p)}>${l}</button>`).join('')}</div>`;
 const nWin=w=>w==='s'||!w?null:+w,per=w=>nWin(w)?`последние ${w} матчей`:'весь сезон';
 
 function vTeam(p){const t=p.t,s=season(),v=p.venue||'all',w=p.win||'s';
 if(!T.includes(t))return vList();
-let h=`<h2>${esc(t)}</h2><div class="m">Сезон ${s}</div>`,body;
+let h=`<div class="hero"><h2>${esc(t)}</h2><div class="m">Сезон ${s}</div></div>`,body;
 const all=sel(t,null,'all',s),ex=[['team',null,'Отчёт'],['cmp',null,'⚖️ Дом vs выезд'],['last',null,'🕐 Последняя игра']];
 const mode=v==='cmp'||v==='last'?v:'team';
 h+=`<div class="row">${[['team','Отчёт'],['cmp','⚖️ Дом vs выезд'],['last','🕐 Последняя игра']].map(([k,l])=>
@@ -98,11 +119,12 @@ h+=`<div class="row">${[['team','Отчёт'],['cmp','⚖️ Дом vs выез�
 if(mode==='team'){const r=sel(t,nWin(w),v,s);
 h+=chips(WIN,w,'win',p)+chips(VEN,v,'venue',p)+`<div class="m">${VT[v]} · ${per(w)}</div>`;
 if(!r.length)return h+'<p>Матчей по этому фильтру пока нет.</p>';
-const a=sel(t,null,v,s);h+=`<p>Форма: ${form(a)}<br>Серия: ${streak(a)}</p><div class="card">${table([['',calc(r)]])}</div>`+LEG+note(r)}
+const a=sel(t,null,v,s);h+=`<div class="pills"><span>Форма ${form(a)}</span><span>Серия: ${streak(a)}</span></div>${kpi(calc(r))}<div class="card">${table([['',calc(r)]])}</div>`+LEG+note(r)}
 else if(mode==='cmp'){const H=sel(t,null,'home',s),A=sel(t,null,'away',s);
 h+=`<p>Форма дома: ${form(H)}<br>Форма на выезде: ${form(A)}</p><div class="card">${table([['Дома',calc(H)],['Выезд',calc(A)]])}</div>`+LEG+note(H.concat(A))}
 else h+=vLast(t,s);
 return h}
+const kpi=s=>`<div class="kpi">${[['Очки за матч',f(s.pts_pg,2)],['Победы–пораж.',s.w+'–'+s.l],['Забито за матч',f(s.gf)],['Пропущено за матч',f(s.ga)]].map(([l,v])=>`<div><b>${v}</b><span>${l}</span></div>`).join('')}</div>`;
 const note=r=>{const n=r.filter(x=>x.ppo!=null).length;return r.length&&n<r.length?`<p class="m">ℹ️ Число большинств есть не для всех матчей (${n} из ${r.length}).</p>`:''};
 function vLast(t,s){const ms=M.filter(m=>(m.home===t||m.away===t)&&m.season===s).sort((a,b)=>a.date<b.date?-1:1),m=ms.at(-1);
 if(!m)return'<p>Матчей пока нет.</p>';const o=m.home===t?m.away:m.home,me=pov(m,t),op=pov(m,o),d=m.date.split('-').reverse().join('.');
@@ -118,7 +140,7 @@ const data=T.map(t=>[t,calc(sel(t,nWin(w),v,s))]).filter(x=>x[1]);
 data.sort((a,b)=>{const x=cat[4](a[1]),y=cat[4](b[1]);return x==null?1:y==null?-1:cat[5]?y-x:x-y});
 return `<h2>Лига · ${cat[2]}</h2><div class="m">${VT[v]} · ${per(w)} · Сезон ${s}</div>`+chips(WIN,w,'win',p)+chips(VEN,v,'venue',p)+
 chips(CATS.map(c=>[c[0],c[1]]),cat[0],'cat',p)+`<div class="card"><table><tr><th>#  Команда</th>${cat[3].map(c=>`<th>${c[0]}</th>`).join('')}</tr>`+
-data.map(([t,x],i)=>`<tr><td>${i+1}. <a href="#" style="color:inherit" ${go({view:'team',t,venue:'all',win:'s'},{})}>${esc(t)}</a></td>${cat[3].map(c=>`<td>${c[1](x)}</td>`).join('')}</tr>`).join('')+'</table></div>'}
+data.map(([t,x],i)=>`<tr><td><span class="rk r${i<3?i+1:0}">${i+1}</span><a href="#" style="color:inherit" ${go({view:'team',t,venue:'all',win:'s'},{})}>${esc(t)}</a></td>${cat[3].map(c=>`<td>${c[1](x)}</td>`).join('')}</tr>`).join('')+'</table></div>'}
 
 function vVs(p){const a=p.a,b=p.b,s=season(),v=p.venue||'all',w=p.win||'s';
 const selb=(k,cur)=>`<select data-sel="${k}"><option value="">— команда —</option>${T.map(t=>`<option ${t===cur?'selected':''}>${esc(t)}</option>`).join('')}</select>`;
@@ -129,9 +151,10 @@ h+=chips(WIN,w,'win',p)+chips([['all','Все матчи'],['ha','1-я дома 
 return !ra.length||!rb.length?h+'<p>У одной из команд нет матчей по этому фильтру.</p>':h+`<div class="card">${table([[a,calc(ra)],[b,calc(rb)]])}</div>`+LEG}
 
 function vList(){return `<div class="row"><button ${go({view:'league',cat:'pts',venue:'all',win:'s'},{})}>📊 Таблица лиги</button><button data-go="view=vs&a=&b=&venue=all&win=s">⚔️ Сравнить две команды</button></div>
-<div class="grid">${T.map(t=>`<button ${go({view:'team',t,venue:'all',win:'s'},{})}>${esc(t)}</button>`).join('')}</div>`}
+<input id="q" type="search" placeholder="Найти команду…"><div class="grid" id="tg">${T.map(t=>`<button ${go({view:'team',t,venue:'all',win:'s'},{})}>${esc(t)}</button>`).join('')}</div>`}
 
-function render(){const p=P(),el=$('#app');
+function render(){const p=P(),el=$('#app'),nv=p.view==='league'||p.view==='vs'?p.view:'list';
+document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.v===nv));
 if(!M.length){el.innerHTML='<p>Данных пока нет — дождись первого запуска обновления (см. README).</p>';return}
 el.innerHTML=p.view==='team'?vTeam(p):p.view==='league'?vLeague(p):p.view==='vs'?vVs(p):vList()}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(!b)return;e.preventDefault();
@@ -141,6 +164,7 @@ if(!q.has('view'))n.view=cur.view;for(const[k,v]of q)n[k]=v;
 if(!q.has('view')&&cur.view==='team'&&!q.has('t'))n.t=cur.t;
 location.hash=new URLSearchParams({...cur,...n}).toString()});
 document.addEventListener('change',e=>{const s=e.target.closest('[data-sel]');if(!s)return;const p=P();p[s.dataset.sel]=s.value;location.hash=new URLSearchParams(p).toString()});
+document.addEventListener('input',e=>{if(e.target.id!=='q')return;const v=e.target.value.toLowerCase();document.querySelectorAll('#tg button').forEach(b=>b.hidden=!b.textContent.toLowerCase().includes(v))});
 addEventListener('hashchange',render);
 fetch('data/matches.json',{cache:'no-cache'}).then(r=>r.json()).then(d=>{M=d.matches;T=[...new Set(M.flatMap(m=>[m.home,m.away]))].sort();
 if(d.updated)$('#upd').textContent='Обновлено: '+new Date(d.updated).toLocaleString('ru-RU',{dateStyle:'short',timeStyle:'short'});render()})
