@@ -39,7 +39,18 @@ store = P._load_json(PJ, {})
 todo = [g for g, r in games.items() if not (r.get("bad") or r.get("warn")) and store.get(g, {}).get("v") != PL.VERSION]
 
 
+DEADLINE = time.time() + 25 * 60      # на составы не больше 25 минут, остальное доберём в следующий запуск
+
+
+def save_players():
+    P._save_json(PJ, store)
+    Path("site/data/players.json").write_text(json.dumps({"updated": now(), "games": sorted(store.values(), key=lambda x: (x["d"], x["id"]))},
+                                                        ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+
 def job(gid):
+    if time.time() > DEADLINE:
+        return gid, None
     r = games[gid]
     try:
         f = P.PDF_DIR / f"game-{gid}-ru.pdf"
@@ -52,13 +63,15 @@ def job(gid):
         return gid, None
 
 
+print("игроки: разбираю игр:", len(todo), flush=True)
 with ThreadPoolExecutor(4) as ex:
-    for gid, rec in ex.map(job, todo):
+    for n, (gid, rec) in enumerate(ex.map(job, todo), 1):
         if rec:
             store[gid] = rec
-P._save_json(PJ, store)
-Path("site/data/players.json").write_text(json.dumps({"updated": now(), "games": sorted(store.values(), key=lambda x: (x["d"], x["id"]))},
-                                                    ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        if n % 20 == 0:
+            save_players()
+            print("игроки: готово", n, "из", len(todo), flush=True)
+save_players()
 
 bad = [f"{g}: {r.get('bad') or r.get('warn')}" for g, r in games.items() if r.get("bad") or r.get("warn")]
 msg = (f"Матчей: {len(ms)}, последний: {ms[-1].date if ms else '–'}. Игр с составами: {len(store)}. "

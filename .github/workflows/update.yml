@@ -17,6 +17,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 50
     environment:
       name: github-pages
       url: ${{ steps.d.outputs.page_url }}
@@ -26,6 +27,7 @@ jobs:
         with: { python-version: "3.12" }
       - run: pip install pypdf
       - name: Скачать и разобрать протоколы
+        timeout-minutes: 35
         run: python scripts/update_data.py
         env:
           KHL_SEASON_ID: "1436"
