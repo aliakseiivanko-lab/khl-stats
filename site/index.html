@@ -34,6 +34,7 @@ tr.s td{color:var(--a);font-weight:700;font-size:11px;letter-spacing:.8px;text-t
 .kpi div{background:var(--c);border:1px solid var(--b);border-radius:14px;padding:12px;box-shadow:var(--sh)}
 .kpi b{display:block;font-size:24px;letter-spacing:-.5px}.kpi span{color:var(--m);font-size:12px}
 @media(max-width:520px){.kpi{grid-template-columns:repeat(2,1fr)}}
+.g summary{display:flex;gap:8px;align-items:center;padding:10px 0;cursor:pointer;list-style:none}.g summary::-webkit-details-marker{display:none}.g .o{flex:1}.g+.g{border-top:1px solid var(--b)}.g table{margin-bottom:8px}
 .d{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:3px;vertical-align:-1px}
 .rk{display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;border-radius:50%;font-size:12px;font-weight:700;margin-right:8px;color:var(--m);background:var(--b)}
 .r1{background:#f5c542;color:#4a3800}.r2{background:#c9ced6;color:#333}.r3{background:#d99a6c;color:#3d2410}
@@ -112,9 +113,9 @@ function vTeam(p){const t=p.t,s=season(),v=p.venue||'all',w=p.win||'s';
 if(!T.includes(t))return vList();
 let h=`<div class="hero"><h2>${esc(t)}</h2><div class="m">Сезон ${s}</div></div>`,body;
 const all=sel(t,null,'all',s),ex=[['team',null,'Отчёт'],['cmp',null,'⚖️ Дом vs выезд'],['last',null,'🕐 Последняя игра']];
-const mode=p.tab==='roster'?'roster':v==='cmp'||v==='last'?v:'team';
-h+=`<div class="row">${[['team','Отчёт'],['roster','👥 Состав'],['cmp','⚖️ Дом vs выезд'],['last','🕐 Последняя игра']].map(([k,l])=>
-`<button class="${mode===k?'on':''}" ${go({tab:k==='roster'?'roster':'',venue:k==='team'||k==='roster'?'all':k,win:'s'},p)}>${l}</button>`).join('')}
+const mode=p.tab==='roster'||p.tab==='games'?p.tab:v==='cmp'||v==='last'?v:'team';
+h+=`<div class="row">${[['team','Отчёт'],['games','📅 Матчи'],['roster','👥 Состав'],['cmp','⚖️ Дом vs выезд'],['last','🕐 Последняя игра']].map(([k,l])=>
+`<button class="${mode===k?'on':''}" ${go({tab:k==='roster'||k==='games'?k:'',venue:k==='team'||k==='roster'||k==='games'?'all':k,win:'s'},p)}>${l}</button>`).join('')}
 <button data-go="view=vs&a=${encodeURIComponent(t)}&b=&venue=all&win=s">⚔️ Сравнить с…</button></div>`;
 if(mode==='team'){const r=sel(t,nWin(w),v,s);
 h+=chips(WIN,w,'win',p)+chips(VEN,v,'venue',p)+`<div class="m">${VT[v]} · ${per(w)}</div>`;
@@ -123,6 +124,7 @@ const a=sel(t,null,v,s);h+=`<div class="pills"><span>Форма ${form(a)}</span
 else if(mode==='cmp'){const H=sel(t,null,'home',s),A=sel(t,null,'away',s);
 h+=`<p>Форма дома: ${form(H)}<br>Форма на выезде: ${form(A)}</p><div class="card">${table([['Дома',calc(H)],['Выезд',calc(A)]])}</div>`+LEG+note(H.concat(A))}
 else if(mode==='last')h+=vLast(t,s);
+else if(mode==='games')h+=chips(VEN,v,'venue',p)+vGames(t,s,v);
 else h+=chips(WIN,w,'win',p)+chips(VEN,v,'venue',p)+`<div class="m">${VT[v]} · ${per(w)}</div>`+roster(t,s,v,w,p);
 return h}
 const kpi=s=>`<div class="kpi">${[['Очки за матч',f(s.pts_pg,2)],['Победы–пораж.',s.w+'–'+s.l],['Забито за матч',f(s.gf)],['Пропущено за матч',f(s.ga)]].map(([l,v])=>`<div><b>${v}</b><span>${l}</span></div>`).join('')}</div>`;
@@ -149,6 +151,16 @@ if(gk.length)h+=`<div class="card"><table><tr><th>Вратари</th><th>И</th>
 gk.map(o=>`<tr><td>${nm(o)}</td><td>${o.gp}</td><td>${mmss(o.toi)}</td><td>${o.ga}</td><td>${o.sa}</td><td>${o.sa?(100*(1-o.ga/o.sa)).toFixed(1):'–'}</td><td>${o.toi?(o.ga*3600/o.toi).toFixed(2):'–'}</td></tr>`).join('')+'</table></div>';
 return h+'<p class="m">Нажми на заголовок колонки, чтобы отсортировать. Ш — голы, А — передачи, О — очки, Бр — броски в створ, Бл — блок-шоты, Сил — силовые, Вр — среднее время за матч. +/- не учитывает голы в большинстве. За период берутся последние матчи команды.</p>'}
 const note=r=>{const n=r.filter(x=>x.ppo!=null).length;return r.length&&n<r.length?`<p class="m">ℹ️ Число большинств есть не для всех матчей (${n} из ${r.length}).</p>`:''};
+function gDetail(m,t){const o=m.home===t?m.away:m.home,me=pov(m,t),op=pov(m,o),n=x=>x==null?'–':x,pr=(g,k)=>g==null||k==null?'–':g+'/'+k,
+fo=r=>r.fo==null||r.foa==null||!(r.fo+r.foa)?'–':`${r.fo} (${Math.round(100*r.fo/(r.fo+r.foa))}%)`;
+const R=[['Броски',r=>n(r.sf)],['Большинство',r=>pr(r.ppg,r.ppo)],['Штраф, мин',r=>n(r.pim)],['Забито в меньш.',r=>n(r.shg)],['Вбрасывания',fo],['Блок. броски',r=>n(r.blk)],['Силовые',r=>n(r.hit)]]
+.map(([l,fn])=>[l,fn(me),fn(op)]).filter(x=>x[1]!=='–'||x[2]!=='–');
+return R.length?`<table><tr><th></th><th>Свои</th><th>Соперн.</th></tr>${R.map(x=>`<tr><td>${x[0]}</td><td>${x[1]}</td><td>${x[2]}</td></tr>`).join('')}</table>`:'<p class="m">Подробной статистики пока нет.</p>'}
+function vGames(t,s,v){const ms=M.filter(m=>(m.home===t||m.away===t)&&m.season===s&&(v==='all'||(v==='home'?m.home===t:m.away===t)))
+.sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
+if(!ms.length)return'<p>Матчей по этому фильтру нет.</p>';
+return `<div class="m">${ms.length} матчей · нажми на матч, чтобы раскрыть статистику</div><div class="card">`+ms.map(m=>{const me=pov(m,t),o=m.home===t?m.away:m.home;
+return `<details class="g"><summary>${dot(me)}<span class="m">${m.date.slice(8)}.${m.date.slice(5,7)}</span><span class="o">${me.home?'vs':'@'} ${esc(o)}</span><b>${m.home_goals}:${m.away_goals}${m.so?' (Б)':m.ot?' (ОТ)':''}</b></summary>${gDetail(m,t)}</details>`}).join('')+'</div>'}
 function vLast(t,s){const ms=M.filter(m=>(m.home===t||m.away===t)&&m.season===s).sort((a,b)=>a.date<b.date?-1:1),m=ms.at(-1);
 if(!m)return'<p>Матчей пока нет.</p>';const o=m.home===t?m.away:m.home,me=pov(m,t),op=pov(m,o),d=m.date.split('-').reverse().join('.');
 const res=me.gf>me.ot*0+me.ga?'🟢 Победа'+(m.so?' по буллитам':m.ot?' в ОТ':''):m.ot?'🟠 Поражение'+(m.so?' по буллитам':' в ОТ'):'🔴 Поражение';
