@@ -142,14 +142,14 @@ let o=A.get(k);if(!o)A.set(k,o={n:r[1],name:k,pos:r[3],gp:0,toi:0,g:0,a:0,pm:0,p
 o.gp++;o.n=r[1];o.toi+=r[4];if(r[3]==='в'){o.ga+=r[20]||0;o.sa+=r[21]||0;continue}
 o.g+=r[6];o.a+=r[7];o.pm+=r[8];o.pim+=r[10];o.bs+=r[12];o.blk+=r[14];o.hit+=r[15];o.fo+=r[18];o.fow+=r[19]}}
 const all=[...A.values()],sk=all.filter(o=>o.pos!=='в'),gk=all.filter(o=>o.pos==='в').sort((a,b)=>b.toi-a.toi);
-const key=p.sort||'pts',col=SKC.find(c=>c[0]===key)||SKC[3],val=o=>col[2](o);
-sk.sort((a,b)=>{const x=val(a),y=val(b);return x==null?1:y==null?-1:y-x||b.g-a.g});
+const key=p.sort||'pts',asc=p.dir==='asc',col=SKC.find(c=>c[0]===key)||(key==='name'?['name']:SKC[3]),val=o=>col[2](o);
+sk.sort((a,b)=>{if(col[0]==='name')return asc?a.name.localeCompare(b.name,'ru'):b.name.localeCompare(a.name,'ru');const x=val(a),y=val(b);return x==null?1:y==null?-1:(asc?x-y:y-x)||b.g-a.g});
 const nm=o=>`<span class="rk">${o.n}</span>${esc(o.name)}`;
-let h=`<div class="card"><table><tr><th>Полевые · ${gs.length} игр</th><th>Поз</th>${SKC.map(c=>`<th style="cursor:pointer;${c[0]===col[0]?'color:var(--a)':''}" ${go({sort:c[0]},p)}>${c[1]}${c[0]===col[0]?' ▾':''}</th>`).join('')}</tr>`+
+let h=`<div class="card"><table><tr><th style="cursor:pointer" ${go({sort:'name',dir:key==='name'&&asc?'desc':'asc'},p)}>Полевые · ${gs.length} игр${key==='name'?(asc?' ▴':' ▾'):''}</th><th>Поз</th>${SKC.map(c=>`<th style="cursor:pointer;${c[0]===col[0]?'color:var(--a)':''}" ${go({sort:c[0],dir:c[0]===col[0]&&!asc?'asc':'desc'},p)}>${c[1]}${c[0]===col[0]?(asc?' ▴':' ▾'):''}</th>`).join('')}</tr>`+
 sk.map(o=>`<tr><td>${nm(o)}</td><td>${o.pos==='з'?'З':'Н'}</td>${SKC.map(c=>{const x=c[2](o);return`<td>${x==null?'–':c[3]?c[3](x):x}</td>`}).join('')}</tr>`).join('')+'</table></div>';
 if(gk.length)h+=`<div class="card"><table><tr><th>Вратари</th><th>И</th><th>Время</th><th>ПШ</th><th>Бр</th><th>Сейвы%</th><th>КН</th></tr>`+
 gk.map(o=>`<tr><td>${nm(o)}</td><td>${o.gp}</td><td>${mmss(o.toi)}</td><td>${o.ga}</td><td>${o.sa}</td><td>${o.sa?(100*(1-o.ga/o.sa)).toFixed(1):'–'}</td><td>${o.toi?(o.ga*3600/o.toi).toFixed(2):'–'}</td></tr>`).join('')+'</table></div>';
-return h+'<p class="m">Нажми на заголовок колонки, чтобы отсортировать. Ш — голы, А — передачи, О — очки, Бр — броски в створ, Бл — блок-шоты, Сил — силовые, Вр — среднее время за матч. +/- не учитывает голы в большинстве. За период берутся последние матчи команды.</p>'}
+return h+'<p class="m">Нажми на заголовок колонки, чтобы отсортировать; повторное нажатие меняет направление (▾ по убыванию, ▴ по возрастанию). Ш — голы, А — передачи, О — очки, Бр — броски в створ, Бл — блок-шоты, Сил — силовые, Вр — среднее время за матч. +/- не учитывает голы в большинстве. За период берутся последние матчи команды.</p>'}
 const note=r=>{const n=r.filter(x=>x.ppo!=null).length;return r.length&&n<r.length?`<p class="m">ℹ️ Число большинств есть не для всех матчей (${n} из ${r.length}).</p>`:''};
 function gDetail(m,t){const o=m.home===t?m.away:m.home,me=pov(m,t),op=pov(m,o),n=x=>x==null?'–':x,pr=(g,k)=>g==null||k==null?'–':g+'/'+k,
 fo=r=>r.fo==null||r.foa==null||!(r.fo+r.foa)?'–':`${r.fo} (${Math.round(100*r.fo/(r.fo+r.foa))}%)`;
@@ -172,9 +172,10 @@ return `<div class="m">последняя игра · ${d}</div><h2>${esc(m.home
 
 function vLeague(p){const cat=CATS.find(c=>c[0]===p.cat)||CATS[0],v=p.venue||'all',w=p.win||'s',s=season();
 const data=T.map(t=>[t,calc(sel(t,nWin(w),v,s))]).filter(x=>x[1]);
-data.sort((a,b)=>{const x=cat[4](a[1]),y=cat[4](b[1]);return x==null?1:y==null?-1:cat[5]?y-x:x-y});
+const dir=p.dir||(cat[5]?'desc':'asc');
+data.sort((a,b)=>{const x=cat[4](a[1]),y=cat[4](b[1]);return x==null?1:y==null?-1:dir==='asc'?x-y:y-x});
 return `<h2>Лига · ${cat[2]}</h2><div class="m">${VT[v]} · ${per(w)} · Сезон ${s}</div>`+chips(WIN,w,'win',p)+chips(VEN,v,'venue',p)+
-chips(CATS.map(c=>[c[0],c[1]]),cat[0],'cat',p)+`<div class="card"><table><tr><th>#  Команда</th>${cat[3].map(c=>`<th>${c[0]}</th>`).join('')}</tr>`+
+chips(CATS.map(c=>[c[0],c[1]]),cat[0],'cat',{...p,dir:''})+chips([['desc','↓ По убыванию'],['asc','↑ По возрастанию']],dir,'dir',p)+`<div class="card"><table><tr><th>#  Команда</th>${cat[3].map(c=>`<th>${c[0]}</th>`).join('')}</tr>`+
 data.map(([t,x],i)=>`<tr><td><span class="rk r${i<3?i+1:0}">${i+1}</span><a href="#" style="color:inherit" ${go({view:'team',t,venue:'all',win:'s'},{})}>${esc(t)}</a></td>${cat[3].map(c=>`<td>${c[1](x)}</td>`).join('')}</tr>`).join('')+'</table></div>'}
 
 function vVs(p){const a=p.a,b=p.b,s=season(),v=p.venue||'all',w=p.win||'s';
