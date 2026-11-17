@@ -1,31 +1,41 @@
-"""Скачивает новые протоколы khl.ru, разбирает их и пишет site/data/matches.json."""
-import datetime as dt, json, sys
+"""Скачивает новые протоколы khl.ru, разбирает их и пишет site/data/*.json."""
+import datetime as dt, json, logging, os, sys, time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
+logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
 import protocols as P
+import players as PL
 
 _h = P.have_ids
-P.have_ids = lambda: _h() | {int(k) for k in P.load_games()}   # уже разобранные заново не качаем
+P.have_ids = lambda: _h() | {int(k) for k, r in P.load_games().items() if not r.get("bad")}
+P.PDF_DIR.mkdir(parents=True, exist_ok=True)
+now = lambda: dt.datetime.now(dt.timezone.utc).isoformat(timespec="minutes")
+
+for x in filter(None, os.getenv("KHL_EXTRA_IDS", "").replace(" ", "").split(",")):   # протоколы, id которых вне диапазона
+    gid, f = int(x), P.PDF_DIR / f"game-{x}-ru.pdf"
+    if not f.exists() and x not in P.load_games():
+        try:
+            P._atomic_write(f, P.fetch_pdf(gid))
+            print("доп. протокол скачан:", gid)
+        except Exception as e:
+            print("доп. протокол", gid, "не скачался:", repr(e))
+
+blocked = False
 try:
     print("скачано новых:", P.download_all())
 except P.Blocked as e:
+    blocked = True
     print("ВНИМАНИЕ:", e)
-P.parse_new()
+games = P.parse_new()
 ms = P.build_matches()
-out = Path("site/data/matches.json")
-out.parent.mkdir(parents=True, exist_ok=True)
-out.write_text(json.dumps({"updated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="minutes"),
-                           "matches": [asdict(m) for m in ms]}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-print("матчей:", len(ms))
+Path("site/data").mkdir(parents=True, exist_ok=True)
+Path("site/data/matches.json").write_text(json.dumps({"updated": now(), "matches": [asdict(m) for m in ms]},
+                                                    ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
-# ── игроки: для каждой разобранной игры один раз читаем PDF (с диска или заново с khl.ru) ──
-import time
-from concurrent.futures import ThreadPoolExecutor
-import players as PL
 PJ = P.PDF_DIR / "players.json"
 store = P._load_json(PJ, {})
-games = P.load_games()
 todo = [g for g, r in games.items() if not (r.get("bad") or r.get("warn")) and store.get(g, {}).get("v") != PL.VERSION]
 
 
@@ -42,14 +52,18 @@ def job(gid):
         return gid, None
 
 
-print("игроки: разбираю игр:", len(todo))
 with ThreadPoolExecutor(4) as ex:
     for gid, rec in ex.map(job, todo):
         if rec:
             store[gid] = rec
 P._save_json(PJ, store)
-Path("site/data/players.json").write_text(json.dumps(
-    {"updated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="minutes"),
-     "games": sorted(store.values(), key=lambda x: (x["d"], x["id"]))}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-print("игры с составами:", len(store))
-sys.exit(0 if ms else 1)
+Path("site/data/players.json").write_text(json.dumps({"updated": now(), "games": sorted(store.values(), key=lambda x: (x["d"], x["id"]))},
+                                                    ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+bad = [f"{g}: {r.get('bad') or r.get('warn')}" for g, r in games.items() if r.get("bad") or r.get("warn")]
+msg = (f"Матчей: {len(ms)}, последний: {ms[-1].date if ms else '–'}. Игр с составами: {len(store)}. "
+       f"Не разобрано: {len(bad)} {bad[:10]}. Блокировка khl.ru: {'ДА' if blocked else 'нет'}")
+print(msg)
+if os.getenv("GITHUB_STEP_SUMMARY"):
+    open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8").write(msg + "\n")
+sys.exit(0 if ms and not blocked else 1)
