@@ -39,7 +39,7 @@ tr.s td{color:var(--a);font-weight:700;font-size:11px;letter-spacing:.8px;text-t
 .r1{background:#f5c542;color:#4a3800}.r2{background:#c9ced6;color:#333}.r3{background:#d99a6c;color:#3d2410}
 </style></head><body><main>
 <header><h1><a href="#">🏒 Статистика КХЛ</a></h1><div class="m" id="upd"></div></header>
-<nav id="nav"><a data-v="list" href="#">Команды</a><a data-v="league" href="#view=league&cat=pts&venue=all&win=s">Таблица лиги</a><a data-v="vs" href="#view=vs&a=&b=&venue=all&win=s">Сравнение</a></nav>
+<nav id="nav"><a data-v="list" href="#">Команды</a><a data-v="table" href="#view=table&conf=all">Таблица</a><a data-v="league" href="#view=league&cat=pts&venue=all&win=s">Статистика лиги</a><a data-v="vs" href="#view=vs&a=&b=&venue=all&win=s">Сравнение</a></nav>
 <div id="app">Загрузка…</div></main>
 <script>
 const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -173,13 +173,25 @@ const ha=v==='ha',ra=sel(a,nWin(w),ha?'home':'all',s),rb=sel(b,nWin(w),ha?'away'
 h+=chips(WIN,w,'win',p)+chips([['all','Все матчи'],['ha','1-я дома · 2-я в гостях']],v,'venue',p)+`<div class="m">${per(w)} · Сезон ${s}</div><p>Форма ${esc(a)}: ${form(ra)}<br>Форма ${esc(b)}: ${form(rb)}</p>`;
 return !ra.length||!rb.length?h+'<p>У одной из команд нет матчей по этому фильтру.</p>':h+`<div class="card">${table([[a,calc(ra)],[b,calc(rb)]])}</div>`+LEG}
 
-function vList(){return `<div class="row"><button ${go({view:'league',cat:'pts',venue:'all',win:'s'},{})}>📊 Таблица лиги</button><button data-go="view=vs&a=&b=&venue=all&win=s">⚔️ Сравнить две команды</button></div>
+const EAST=['авангард','ак барс','автомобилист','металлург','трактор','салават','сибирь','барыс','амур','адмирал','нефтехим'];
+const confOf=t=>EAST.some(k=>t.toLowerCase().startsWith(k))?'e':'w';
+function standings(ts,s){return ts.map(t=>{const o={t,gp:0,w:0,wo:0,lo:0,l:0,gf:0,ga:0,pts:0};
+for(const x of sel(t,null,'all',s)){o.gp++;o.gf+=x.gfg;o.ga+=x.gag;
+if(x.gf>x.ga){if(x.ot){o.wo++;o.pts+=2}else{o.w++;o.pts+=3}}else if(x.ot){o.lo++;o.pts++}else o.l++}return o})
+.sort((a,b)=>b.pts-a.pts||b.w-a.w||(b.w+b.wo)-(a.w+a.wo)||(b.gf-b.ga)-(a.gf-a.ga)||b.gf-a.gf)}
+function vTable(p){const c=p.conf||'all',s=season(),ts=c==='all'?T:T.filter(t=>confOf(t)===c),rows=standings(ts,s),
+name={all:'Общая таблица',w:'Западная конференция',e:'Восточная конференция'}[c]||'Общая таблица';
+return `<h2>${name}</h2><div class="m">Сезон ${s} · ${rows.length} команд</div>`+chips([['all','Общая'],['w','Запад'],['e','Восток']],c,'conf',p)+
+`<div class="card"><table><tr><th>Команда</th><th>И</th><th>В</th><th>ВО</th><th>ПО</th><th>П</th><th>Ш</th><th>РШ</th><th>О</th></tr>`+
+rows.map((o,i)=>`<tr><td><span class="rk r${i<3?i+1:0}">${i+1}</span><a href="#" style="color:inherit" ${go({view:'team',t:o.t,venue:'all',win:'s'},{})}>${esc(o.t)}</a></td><td>${o.gp}</td><td>${o.w}</td><td>${o.wo}</td><td>${o.lo}</td><td>${o.l}</td><td>${o.gf}-${o.ga}</td><td>${sgn(o.gf-o.ga)}</td><td><b>${o.pts}</b></td></tr>`).join('')+'</table></div>'+
+'<p class="m">В — победы в основное время, ВО — победы в ОТ или по буллитам, ПО — поражения в ОТ или по буллитам, П — поражения в основное время. Ш — забитые и пропущенные (без победного буллита), РШ — разница. Места: очки, затем победы в основное время, все победы, разница шайб, забитые.</p>'}
+function vList(){return `<div class="row"><button ${go({view:'table',conf:'all'},{})}>🏆 Турнирная таблица</button><button ${go({view:'league',cat:'pts',venue:'all',win:'s'},{})}>📊 Статистика лиги</button><button data-go="view=vs&a=&b=&venue=all&win=s">⚔️ Сравнить две команды</button></div>
 <input id="q" type="search" placeholder="Найти команду…"><div class="grid" id="tg">${T.map(t=>`<button ${go({view:'team',t,venue:'all',win:'s'},{})}>${esc(t)}</button>`).join('')}</div>`}
 
-function render(){const p=P(),el=$('#app'),nv=p.view==='league'||p.view==='vs'?p.view:'list';
+function render(){const p=P(),el=$('#app'),nv=['league','vs','table'].includes(p.view)?p.view:'list';
 document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.v===nv));
 if(!M.length){el.innerHTML='<p>Данных пока нет — дождись первого запуска обновления (см. README).</p>';return}
-el.innerHTML=p.view==='team'?vTeam(p):p.view==='league'?vLeague(p):p.view==='vs'?vVs(p):vList()}
+el.innerHTML=p.view==='team'?vTeam(p):p.view==='league'?vLeague(p):p.view==='table'?vTable(p):p.view==='vs'?vVs(p):vList()}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(!b)return;e.preventDefault();
 const q=new URLSearchParams(b.dataset.go),cur=P(),n={};
 // view сохраняется из текущей страницы, если кнопка его не задаёт
