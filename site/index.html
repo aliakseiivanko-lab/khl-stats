@@ -38,13 +38,22 @@ tr.s td{color:var(--a);font-weight:700;font-size:11px;letter-spacing:.8px;text-t
 .d{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:3px;vertical-align:-1px}
 .rk{display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;border-radius:50%;font-size:12px;font-weight:700;margin-right:8px;color:var(--m);background:var(--b)}
 .r1{background:#f5c542;color:#4a3800}.r2{background:#c9ced6;color:#333}.r3{background:#d99a6c;color:#3d2410}
+.dh{font-weight:700;margin:18px 0 0;scroll-margin-top:60px}.dh::first-letter{text-transform:uppercase}.dh.tdy{color:var(--a)}
+.up{display:flex;gap:8px;align-items:center;padding:10px 0;scroll-margin-top:60px}.up .o{flex:1}
+.dt{color:var(--m);font-size:13px;min-width:74px}
+.fx{display:flex;align-items:center;gap:8px;padding:10px 0}.fx+.fx{border-top:1px solid var(--b)}
+.fx .h,.fx .a{flex:1;min-width:0;overflow-wrap:anywhere}.fx .h{text-align:right}
+.fx .s{min-width:64px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums}.fx .s.u{color:var(--m);font-weight:600}
+.fx .w{font-weight:700}.fx a{color:inherit;text-decoration:none}
+.nx{background:var(--a2);border-radius:8px;padding-left:6px;padding-right:6px}
+button[disabled]{opacity:.35;cursor:default}
 </style></head><body><main>
 <header><h1><a href="#">🏒 Статистика КХЛ</a></h1><div class="m" id="upd"></div></header>
-<nav id="nav"><a data-v="list" href="#">Команды</a><a data-v="table" href="#view=table&conf=all">Таблица</a><a data-v="league" href="#view=league&cat=pts&venue=all&win=s">Статистика лиги</a><a data-v="vs" href="#view=vs&a=&b=&venue=all&win=s">Сравнение</a></nav>
+<nav id="nav"><a data-v="list" href="#">Команды</a><a data-v="table" href="#view=table&conf=all">Таблица</a><a data-v="cal" href="#view=cal&st=all">Календарь</a><a data-v="league" href="#view=league&cat=pts&venue=all&win=s">Статистика лиги</a><a data-v="vs" href="#view=vs&a=&b=&venue=all&win=s">Сравнение</a></nav>
 <div id="app">Загрузка…</div></main>
 <script>
 const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let M=[],T=[],PG=[];
+let M=[],T=[],PG=[],S=[];
 const sum=a=>a.reduce((x,y)=>x+y,0),ok=(r,k)=>r.filter(x=>x[k]!=null);
 const avg=(r,k)=>{const v=ok(r,k);return v.length?sum(v.map(x=>x[k]))/v.length:null};
 const pair=(r,a,b)=>{const p=r.filter(x=>x[a]!=null&&x[b]!=null);return p.length?[sum(p.map(x=>x[a])),sum(p.map(x=>x[b]))]:null};
@@ -114,7 +123,7 @@ if(!T.includes(t))return vList();
 let h=`<div class="hero"><h2>${esc(t)}</h2><div class="m">Сезон ${s}</div></div>`,body;
 const all=sel(t,null,'all',s),ex=[['team',null,'Отчёт'],['cmp',null,'⚖️ Дом vs выезд'],['last',null,'🕐 Последняя игра']];
 const mode=p.tab==='roster'||p.tab==='games'?p.tab:v==='cmp'||v==='last'?v:'team';
-h+=`<div class="row">${[['team','Отчёт'],['games','📅 Матчи'],['roster','👥 Состав'],['cmp','⚖️ Дом vs выезд'],['last','🕐 Последняя игра']].map(([k,l])=>
+h+=`<div class="row">${[['team','Отчёт'],['games','📅 Календарь'],['roster','👥 Состав'],['cmp','⚖️ Дом vs выезд'],['last','🕐 Последняя игра']].map(([k,l])=>
 `<button class="${mode===k?'on':''}" ${go({tab:k==='roster'||k==='games'?k:'',venue:k==='team'||k==='roster'||k==='games'?'all':k,win:'s'},p)}>${l}</button>`).join('')}
 <button data-go="view=vs&a=${encodeURIComponent(t)}&b=&venue=all&win=s">⚔️ Сравнить с…</button></div>`;
 if(mode==='team'){const r=sel(t,nWin(w),v,s);
@@ -124,7 +133,7 @@ const a=sel(t,null,v,s);h+=`<div class="pills"><span>Форма ${form(a)}</span
 else if(mode==='cmp'){const H=sel(t,null,'home',s),A=sel(t,null,'away',s);
 h+=`<p>Форма дома: ${form(H)}<br>Форма на выезде: ${form(A)}</p><div class="card">${table([['Дома',calc(H)],['Выезд',calc(A)]])}</div>`+LEG+note(H.concat(A))}
 else if(mode==='last')h+=vLast(t,s);
-else if(mode==='games')h+=chips(VEN,v,'venue',p)+vGames(t,s,v);
+else if(mode==='games')h+=vGames(t,s,v,p);
 else h+=chips(WIN,w,'win',p)+chips(VEN,v,'venue',p)+`<div class="m">${VT[v]} · ${per(w)}</div>`+roster(t,s,v,w,p);
 return h}
 const kpi=s=>`<div class="kpi">${[['Очки за матч',f(s.pts_pg,2)],['Победы–пораж.',s.w+'–'+s.l],['Забито за матч',f(s.gf)],['Пропущено за матч',f(s.ga)]].map(([l,v])=>`<div><b>${v}</b><span>${l}</span></div>`).join('')}</div>`;
@@ -156,11 +165,52 @@ fo=r=>r.fo==null||r.foa==null||!(r.fo+r.foa)?'–':`${r.fo} (${Math.round(100*r.
 const R=[['Броски',r=>n(r.sf)],['Большинство',r=>pr(r.ppg,r.ppo)],['Штраф, мин',r=>n(r.pim)],['Забито в меньш.',r=>n(r.shg)],['Вбрасывания',fo],['Блок. броски',r=>n(r.blk)],['Силовые',r=>n(r.hit)]]
 .map(([l,fn])=>[l,fn(me),fn(op)]).filter(x=>x[1]!=='–'||x[2]!=='–');
 return R.length?`<table><tr><th></th><th>Свои</th><th>Соперн.</th></tr>${R.map(x=>`<tr><td>${x[0]}</td><td>${x[1]}</td><td>${x[2]}</td></tr>`).join('')}</table>`:'<p class="m">Подробной статистики пока нет.</p>'}
-function vGames(t,s,v){const ms=M.filter(m=>(m.home===t||m.away===t)&&m.season===s&&(v==='all'||(v==='home'?m.home===t:m.away===t)))
-.sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
-if(!ms.length)return'<p>Матчей по этому фильтру нет.</p>';
-return `<div class="m">${ms.length} матчей · нажми на матч, чтобы раскрыть статистику</div><div class="card">`+ms.map(m=>{const me=pov(m,t),o=m.home===t?m.away:m.home;
-return `<details class="g"><summary>${dot(me)}<span class="m">${m.date.slice(8)}.${m.date.slice(5,7)}</span><span class="o">${me.home?'vs':'@'} ${esc(o)}</span><b>${m.home_goals}:${m.away_goals}${m.so?' (Б)':m.ot?' (ОТ)':''}</b></summary>${gDetail(m,t)}</details>`}).join('')+'</div>'}
+const todayS=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const dObj=d=>new Date(d+'T00:00:00'),WD=d=>dObj(d).toLocaleDateString('ru-RU',{weekday:'short'}),dm=d=>d.slice(8)+'.'+d.slice(5,7);
+const MON=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const ST=[['all','Весь календарь'],['up','Предстоящие'],['done','Сыграно']];
+const res=m=>m.home_goals+':'+m.away_goals+(m.so?' (Б)':m.ot?' (ОТ)':'');
+// единый список: сыгранные матчи (протоколы) + будущие из schedule.json; время берём из расписания, если оно там есть
+function fixtures(){const s=season(),map=new Map(),hist=new Map();
+for(const m of M){if(m.season!==s)continue;map.set(m.date+'|'+m.home+'|'+m.away,{d:m.date,h:m.home,a:m.away,m});
+const k=m.home+'|'+m.away;if(!hist.has(k))hist.set(k,[]);hist.get(k).push(m.date)}
+const near=(k,d)=>(hist.get(k)||[]).some(x=>Math.abs(dObj(x)-dObj(d))<=2*864e5);
+for(const g of S){const k=g.d+'|'+g.h+'|'+g.a,f=map.get(k);if(f){f.t=g.t;continue}
+if(seasonOf(g.d)!==s||near(g.h+'|'+g.a,g.d))continue;map.set(k,{d:g.d,h:g.h,a:g.a,t:g.t})}
+return[...map.values()].sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:(a.t||'')<(b.t||'')?-1:(a.t||'')>(b.t||'')?1:0)}
+const noSched=()=>S.length?'':'<p class="m">ℹ️ Расписание будущих матчей пока не загружено — оно появится после ближайшего обновления данных. Пока показаны только сыгранные игры.</p>';
+function vGames(t,s,v,p){const st=p.st||'all',td=todayS();
+const fx=fixtures().filter(f=>(f.h===t||f.a===t)&&seasonOf(f.d)===s&&(v==='all'||(v==='home'?f.h===t:f.a===t)));
+const done=fx.filter(f=>f.m),up=fx.filter(f=>!f.m),nx=up.find(f=>f.d>=td)||up[0];
+const list=st==='up'?up:st==='done'?done.slice().reverse():fx;
+let h=chips(ST,st,'st',p)+chips(VEN,v,'venue',p);
+if(!fx.length)return h+'<p>Матчей по этому фильтру нет.</p>'+noSched();
+const opp=f=>f.h===t?f.a:f.h,vs=f=>f.h===t?'vs':'@';
+h+=`<div class="pills"><span>Сыграно ${done.length}</span><span>Впереди ${up.length}</span>${nx?`<span>Следующий матч: ${dm(nx.d)} ${vs(nx)} ${esc(opp(nx))}${nx.t?' · '+nx.t+' МСК':''}</span>`:''}</div>`;
+if(!list.length)return h+'<p>Матчей по этому фильтру нет.</p>'+noSched();
+h+=`<div class="card">`+list.map(f=>{const dd=`<span class="dt">${dm(f.d)} ${WD(f.d)}</span>`;
+if(f.m){const me=pov(f.m,t);return `<details class="g">`+`<summary>${dot(me)}${dd}<span class="o">${vs(f)} ${esc(opp(f))}</span><b>${res(f.m)}</b></summary>${gDetail(f.m,t)}</details>`}
+const late=f.d<td;
+return `<div class="g"><div class="up${f===nx?' nx':''}"${f===nx?' id="next"':''}><span class="d" style="background:var(--b)"></span>${dd}<span class="o">${vs(f)} ${esc(opp(f))}</span><span class="m">${late?'результат уточняется':(f.t?f.t+' МСК':'время уточняется')}</span></div></div>`}).join('')+'</div>'
++'<p class="m">Время начала — московское (МСК). Нажми на сыгранный матч, чтобы раскрыть статистику.</p>'+noSched();return h}
+function vCal(p){const all=fixtures(),td=todayS(),st=p.st||'all',tm=T.includes(p.tm)?p.tm:'';
+const months=[...new Set(all.map(f=>f.d.slice(0,7)))];
+if(!months.length)return'<h2>Календарь лиги</h2><p class="m">Матчей пока нет.</p>'+noSched();
+const cm=td.slice(0,7),mo=months.includes(p.mo)?p.mo:months.includes(cm)?cm:(months.filter(x=>x<=cm).pop()||months[0]),i=months.indexOf(mo);
+const fx=all.filter(f=>f.d.slice(0,7)===mo&&(!tm||f.h===tm||f.a===tm)&&(st==='all'||(st==='up'?!f.m:!!f.m)));
+const nd=all.filter(f=>f.d.slice(0,7)===mo&&f.m).length;
+let h=`<h2>Календарь лиги</h2><div class="m">Сезон ${season()} · всего матчей в календаре: ${all.length}</div>`+
+`<div class="row" style="align-items:center"><button ${i>0?go({mo:months[i-1]},p):'disabled'}>‹</button><b style="min-width:150px;text-align:center">${MON[+mo.slice(5)-1]} ${mo.slice(0,4)}</b>`+
+`<button ${i<months.length-1?go({mo:months[i+1]},p):'disabled'}>›</button>${mo!==cm&&months.includes(cm)?`<button ${go({mo:cm},p)}>Сегодня</button>`:''}</div>`+
+chips(ST,st,'st',p)+`<div class="row"><select data-sel="tm"><option value="">Все команды</option>${T.map(x=>`<option ${x===tm?'selected':''}>${esc(x)}</option>`).join('')}</select></div>`;
+if(!fx.length)return h+'<p>Матчей по этому фильтру нет.</p>'+noSched();
+const days=[...new Set(fx.map(f=>f.d))],first=mo===cm?days.find(d=>d>=td):null;
+const tl=x=>`<a href="#" ${go({view:'team',t:x,venue:'all',win:'s',tab:'',st:'',mo:'',tm:''},{})}>${esc(x)}</a>`;
+h+=`<div class="m">${fx.length} ${plural(fx.length,['матч','матча','матчей'])} · в месяце сыграно ${nd} из ${all.filter(f=>f.d.slice(0,7)===mo).length}</div>`;
+h+=days.map(d=>`<div class="dh${d===td?' tdy':''}"${d===first?' id="next"':''}>${dObj(d).toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'})}${d===td?' · сегодня':''}</div><div class="card" style="margin-top:6px">`+
+fx.filter(f=>f.d===d).map(f=>{const m=f.m,hw=m&&m.home_goals>m.away_goals,aw=m&&m.away_goals>m.home_goals;
+return `<div class="fx"><span class="h${hw?' w':''}">${tl(f.h)}</span><span class="s${m?'':' u'}">${m?res(m):(f.t||'–:–')}</span><span class="a${aw?' w':''}">${tl(f.a)}</span></div>`}).join('')+'</div>').join('');
+return h+'<p class="m">У будущих матчей в центре — время начала (МСК), у сыгранных — счёт. Жирным выделен победитель.</p>'+noSched()}
 function vLast(t,s){const ms=M.filter(m=>(m.home===t||m.away===t)&&m.season===s).sort((a,b)=>a.date<b.date?-1:1),m=ms.at(-1);
 if(!m)return'<p>Матчей пока нет.</p>';const o=m.home===t?m.away:m.home,me=pov(m,t),op=pov(m,o),d=m.date.split('-').reverse().join('.');
 const res=me.gf>me.ot*0+me.ga?'🟢 Победа'+(m.so?' по буллитам':m.ot?' в ОТ':''):m.ot?'🟠 Поражение'+(m.so?' по буллитам':' в ОТ'):'🔴 Поражение';
@@ -198,13 +248,14 @@ return `<h2>${name}</h2><div class="m">Сезон ${s} · ${rows.length} ком�
 `<div class="card"><table><tr><th>Команда</th><th>И</th><th>В</th><th>ВО</th><th>ПО</th><th>П</th><th>Ш</th><th>РШ</th><th>О</th></tr>`+
 rows.map((o,i)=>`<tr><td><span class="rk r${i<3?i+1:0}">${i+1}</span><a href="#" style="color:inherit" ${go({view:'team',t:o.t,venue:'all',win:'s'},{})}>${esc(o.t)}</a></td><td>${o.gp}</td><td>${o.w}</td><td>${o.wo}</td><td>${o.lo}</td><td>${o.l}</td><td>${o.gf}-${o.ga}</td><td>${sgn(o.gf-o.ga)}</td><td><b>${o.pts}</b></td></tr>`).join('')+'</table></div>'+
 '<p class="m">В — победы в основное время, ВО — победы в ОТ или по буллитам, ПО — поражения в ОТ или по буллитам, П — поражения в основное время. Ш — забитые и пропущенные (без победного буллита), РШ — разница. Места: очки, затем победы в основное время, все победы, разница шайб, забитые.</p>'}
-function vList(){return `<div class="row"><button ${go({view:'table',conf:'all'},{})}>🏆 Турнирная таблица</button><button ${go({view:'league',cat:'pts',venue:'all',win:'s'},{})}>📊 Статистика лиги</button><button data-go="view=vs&a=&b=&venue=all&win=s">⚔️ Сравнить две команды</button></div>
+function vList(){return `<div class="row"><button ${go({view:'table',conf:'all'},{})}>🏆 Турнирная таблица</button><button ${go({view:'cal',st:'all'},{})}>📅 Календарь лиги</button><button ${go({view:'league',cat:'pts',venue:'all',win:'s'},{})}>📊 Статистика лиги</button><button data-go="view=vs&a=&b=&venue=all&win=s">⚔️ Сравнить две команды</button></div>
 <input id="q" type="search" placeholder="Найти команду…"><div class="grid" id="tg">${T.map(t=>`<button ${go({view:'team',t,venue:'all',win:'s'},{})}>${esc(t)}</button>`).join('')}</div>`}
 
-function render(){const p=P(),el=$('#app'),nv=['league','vs','table'].includes(p.view)?p.view:'list';
+function render(){const p=P(),el=$('#app'),nv=['league','vs','table','cal'].includes(p.view)?p.view:'list';
 document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.v===nv));
 if(!M.length){el.innerHTML='<p>Данных пока нет — дождись первого запуска обновления (см. README).</p>';return}
-el.innerHTML=p.view==='team'?vTeam(p):p.view==='league'?vLeague(p):p.view==='table'?vTable(p):p.view==='vs'?vVs(p):vList()}
+el.innerHTML=p.view==='team'?vTeam(p):p.view==='league'?vLeague(p):p.view==='table'?vTable(p):p.view==='vs'?vVs(p):p.view==='cal'?vCal(p):vList();
+if(p.view==='cal'||(p.view==='team'&&p.tab==='games'))if((p.st||'all')==='all'){const n=document.getElementById('next');if(n)n.scrollIntoView({block:'center'})}}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(!b)return;e.preventDefault();
 const q=new URLSearchParams(b.dataset.go),cur=P(),n={};
 // view сохраняется из текущей страницы, если кнопка его не задаёт
@@ -215,6 +266,7 @@ document.addEventListener('change',e=>{const s=e.target.closest('[data-sel]');if
 document.addEventListener('input',e=>{if(e.target.id!=='q')return;const v=e.target.value.toLowerCase();document.querySelectorAll('#tg button').forEach(b=>b.hidden=!b.textContent.toLowerCase().includes(v))});
 addEventListener('hashchange',render);
 fetch('data/matches.json',{cache:'no-cache'}).then(r=>r.json()).then(d=>{M=d.matches;T=[...new Set(M.flatMap(m=>[m.home,m.away]))].sort();
+fetch('data/schedule.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{if(x){S=x.games||[];render()}}).catch(()=>{});
 if(d.updated)$('#upd').textContent='Обновлено: '+new Date(d.updated).toLocaleString('ru-RU',{dateStyle:'short',timeStyle:'short'});render();return fetch('data/players.json').then(r=>r.json()).then(d=>{PG=d.games||[];render()}).catch(()=>{})})
 .catch(()=>$('#app').textContent='Не удалось загрузить data/matches.json (локально открывай через: python -m http.server)');
 </script></body></html>
