@@ -34,6 +34,13 @@ Path("site/data").mkdir(parents=True, exist_ok=True)
 Path("site/data/matches.json").write_text(json.dumps({"updated": now(), "matches": [asdict(m) for m in ms]},
                                                     ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
+try:                                                    # календарь (будущие матчи); сбой не должен ронять обновление
+    import khl_schedule as SC
+    n = SC.update(sorted({t for m in ms for t in (m.home, m.away)}), ms[-1].season if ms else None)
+    print("календарь: игр в расписании:", n)
+except Exception as e:
+    print("календарь: не обновлён:", repr(e))
+
 PJ = P.PDF_DIR / "players.json"
 store = P._load_json(PJ, {})
 todo = [g for g, r in games.items() if not (r.get("bad") or r.get("warn")) and store.get(g, {}).get("v") != PL.VERSION]
