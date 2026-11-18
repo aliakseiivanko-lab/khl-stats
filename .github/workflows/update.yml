@@ -39,7 +39,8 @@ jobs:
           KHL_LOOKAHEAD: "120"
           KHL_MISS_RETRY_H: "1"
           KHL_EXTRA_IDS: ""
-          KHL_CALENDAR_URLS: "https://www.khl.ru/calendar/{season}/00/"
+          KHL_CALENDAR_URL: ""      # адрес запроса календаря из DevTools (Сеть -> Fetch/XHR)
+          KHL_CALENDAR_POST: ""     # если запрос POST — тело запроса из вкладки «Полезная нагрузка»
           PDF_DIR: data
           KHL_COOKIE: ${{ secrets.KHL_COOKIE }}
       - name: Сохранить данные в репозиторий
