@@ -29,7 +29,7 @@ URL = os.getenv("KHL_CALENDAR_URL", "").strip()
 POST = os.getenv("KHL_CALENDAR_POST", "").strip()
 RAW = Path(os.getenv("KHL_CALENDAR_FILE", "data/calendar_raw.json"))
 OUT = Path("site/data/schedule.json")
-ALIASES: dict[str, str] = {}      # «как на khl.ru»: «как в протоколах», если названия команд расходятся
+ALIASES: dict[str, str] = {"Шанхайские Драконы": "Драконы"}   # «как на сайте»: «как в протоколах», если названия расходятся
 
 
 def _games_of(obj: dict) -> tuple[list[dict], dict[str, str]]:
@@ -73,6 +73,75 @@ def parse_calendar(obj: dict, known: list[str]) -> list[dict]:
 
 CAL_PAGES = ["https://www.khl.ru/calendar/{season}/00/", "https://www.khl.ru/calendar/"]
 CAND_LOG = Path(os.getenv("PDF_DIR", "data")) / P.SEASON_ID / "_calendar_candidates.txt"
+
+# ───────── запасной источник: championat.com (страница календаря отдаётся готовым HTML на весь сезон) ─────────
+CHAMP_URL = os.getenv("KHL_CHAMPIONAT_URL", "https://www.championat.com/hockey/_superleague/tournament/7092/calendar/").strip()
+
+from html.parser import HTMLParser
+
+
+class _Text(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.out, self._skip = [], 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ("script", "style", "noscript"):
+            self._skip += 1
+
+    def handle_endtag(self, tag):
+        if tag in ("script", "style", "noscript") and self._skip:
+            self._skip -= 1
+
+    def handle_data(self, data):
+        if not self._skip and data.strip():
+            self.out.append(data.strip())
+
+
+_DT = re.compile(r"(\d{2})\.(\d{2})\.(\d{4})\s+(\d{1,2}:\d{2})(?:\s+\d{2}\.\d{2}\.\d{4}\s+\d{1,2}:\d{2})?")
+_SC = re.compile(r"\s+(?:\d+|–|-)\s*:\s*(?:\d+|–|-)(?:\s*(?:ОТ|Б))?\s*$")
+
+
+def parse_championat(text: str, known: list[str]) -> list[dict]:
+    """Текст страницы календаря championat ('ДД.ММ.ГГГГ ЧЧ:ММ Хозяева – Гости счёт') -> [{"d","t","h","a"}].
+    Время на сайте московское. Названия приводятся к тем, что в протоколах."""
+    text = re.sub(r"\s+", " ", text.replace("\xa0", " "))
+    cf = {k.casefold(): k for k in known}
+    cf.update({a.casefold(): c for a, c in ALIASES.items()})
+    parts = _DT.split(text)                       # [до, дд, мм, гггг, чч:мм, хвост, дд, ...]
+    out, seen = [], set()
+    for i in range(1, len(parts) - 4, 5):
+        dd, mm, yy, tm, tail = parts[i:i + 5]
+        tail = _DT.split(tail)[0]                 # хвост до следующей даты
+        tail = _SC.sub("", tail.strip()).strip()
+        if " – " not in tail:
+            continue
+        h, a = [x.strip() for x in tail.split(" – ", 1)]
+        h, a = cf.get(h.casefold(), h), cf.get(a.casefold(), a)
+        if not h or not a or h == a or len(h) > 40 or len(a) > 40:
+            continue
+        d = f"{yy}-{mm}-{dd}"
+        key = (d, h, a)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({"d": d, "t": tm.zfill(5), "h": h, "a": a})
+    out.sort(key=lambda x: (x["d"], x["t"], x["h"]))
+    return out
+
+
+def fetch_championat(known: list[str]) -> list[dict]:
+    if not CHAMP_URL:
+        return []
+    req = urllib.request.Request(CHAMP_URL, headers={
+        "User-Agent": P._HEADERS["User-Agent"], "Accept": "text/html,*/*;q=0.8", "Accept-Language": "ru-RU,ru;q=0.9"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        html = r.read().decode("utf-8", "replace")
+    tp = _Text()
+    tp.feed(html)
+    games = parse_championat(" ".join(tp.out), known)
+    log.info("календарь: championat.com -> %d матчей", len(games))
+    return games
 
 
 def _has_games(obj) -> bool:
@@ -163,8 +232,14 @@ def fetch() -> dict | None:
 def update(teams: list[str], season: str | None = None) -> int:
     """Обновляет site/data/schedule.json. Возвращает число матчей в календаре.
     Если разобрать не удалось, прежний файл остаётся как был."""
-    obj = fetch()
-    games = parse_calendar(obj, teams) if obj else []
+    games = []
+    try:
+        games = fetch_championat(teams)
+    except Exception as e:
+        log.warning("календарь: championat.com не отдал расписание: %r", e)
+    if len(games) < 50:                                 # слишком мало — похоже на сбой разбора, пробуем khl.ru
+        obj = fetch()
+        games = parse_calendar(obj, teams) if obj else games
     if not games:
         log.warning("календарь: матчи не найдены (нет KHL_CALENDAR_URL или %s), оставляю прежний файл", RAW)
         return len(P._load_json(OUT, {}).get("games", []))
