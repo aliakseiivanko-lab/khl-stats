@@ -1,11 +1,8 @@
 name: update-and-deploy
 on:
   schedule:
-    - cron: "7 6 * * *"    # 09:07 МСК
-    - cron: "7 9 * * *"    # 12:07 МСК
-    - cron: "7 12 * * *"   # 15:07 МСК
-    - cron: "7 15 * * *"   # 18:07 МСК
-    - cron: "7 19 * * *"   # 22:07 МСК
+    # каждые 2 часа с 09:07 до 23:07 МСК (МСК = UTC+3)
+    - cron: "7 6,8,10,12,14,16,18,20 * * *"
   workflow_dispatch:
   push:
     branches: [main]
