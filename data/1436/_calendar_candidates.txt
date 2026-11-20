@@ -1,0 +1,3 @@
+https://www.khl.ru/local/templates/2025/js/base/calendar-filter-sheet.js?176588937926207
+https://www.khl.ru/local/templates/2025/js/modules/calendar-swiper-with-pagination.js?179006713437493
+https://www.khl.ru/calendar/#tournament#/#clubs#/
