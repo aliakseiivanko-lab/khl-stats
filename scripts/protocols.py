@@ -46,7 +46,7 @@ PDF_DIR = Path(os.getenv("PDF_DIR", "protocols")) / SEASON_ID
 GAMES_PATH = PDF_DIR / "games.json"
 MISS_PATH = PDF_DIR / "_misses.json"
 PDF_URL = "https://www.khl.ru/pdf/{season}/{gid}/game-{gid}-ru.pdf"
-PARSER_VERSION = 2
+PARSER_VERSION = 3
 
 
 # ═════════════════════════ 1. СКАЧИВАНИЕ ═════════════════════════
@@ -192,6 +192,49 @@ def download_all(on_batch=None, workers: int = 4, delay: float = 0.2) -> int:
     return total
 
 
+def refresh_stale(recent_days: int = 3, workers: int = 4) -> list[int]:
+    """Перекачивает протоколы, в которых счёт мог остаться промежуточным.
+
+    Это (1) записи, разобранные старой версией парсера (без проверки «Окончание матча»), и
+    (2) игры за последние `recent_days` дней — на случай, если PDF изменился после первой загрузки.
+    Если PDF не поменялся — запись остаётся. Если поменялся (или матч ещё не окончен) — запись
+    удаляется и разбирается заново. Возвращает id изменившихся игр."""
+    import datetime as dt
+    games = load_games()
+    limit = (dt.date.today() - dt.timedelta(days=recent_days)).isoformat()
+    todo = [int(k) for k, r in games.items()
+            if not r.get("bad") and (r.get("v") != PARSER_VERSION or r.get("date", "") >= limit)]
+    if not todo:
+        return []
+    log.info("khl.ru: перепроверяю %d протоколов (старый парсер или последние дни)", len(todo))
+
+    def job(gid):
+        try:
+            return gid, fetch_pdf(gid)
+        except Exception as e:                      # сеть/404: оставляем как есть, проверим в следующий раз
+            log.warning("перепроверка %s не удалась: %r", gid, e)
+            return gid, None
+        finally:
+            time.sleep(0.2)
+
+    changed = []
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        for gid, data in ex.map(job, todo):
+            if not data:
+                continue
+            f = PDF_DIR / f"game-{gid}-ru.pdf"
+            rec = games[str(gid)]
+            if rec.get("v") == PARSER_VERSION and f.exists() and f.read_bytes() == data:
+                continue                            # без изменений
+            _atomic_write(f, data)
+            games.pop(str(gid), None)               # parse_new разберёт заново (или удалит, если не окончен)
+            changed.append(gid)
+    if changed:
+        _save_json(GAMES_PATH, games)
+        log.info("khl.ru: обновлено протоколов: %d", len(changed))
+    return changed
+
+
 # ═════════════════════════ 2. РАЗБОР PDF ═════════════════════════
 
 _MONTHS = {"января": 1, "февраля": 2, "марта": 3, "апреля": 4, "мая": 5, "июня": 6,
@@ -239,9 +282,13 @@ def parse_text(text: str):
     mh = type("M", (), {"group": lambda self, i, v=home: v})()
     ma = type("M", (), {"group": lambda self, i, v=away: v})()
 
+    # Пока матч идёт, khl.ru уже отдаёт PDF с промежуточным счётом и блоком БРОСКИ.
+    # Протокол считается готовым только после строки «Окончание матча: ЧЧ:ММ».
+    if not fin:
+        return None, "not_finished"
     msog = re.search(r"БРОСКИ.*?ВСЕГО\s+ВСЕГО\s+(\d+)\s*-\s*(\d+)\s+(\d+)\s*-\s*(\d+)", t, re.S)
     if not msog:
-        return None, ("not_finished" if not fin else "нет блока БРОСКИ")
+        return None, "нет блока БРОСКИ"
     reg = [int(msog.group(1)), int(msog.group(3))]       # голы игры (без победного буллита?)
     sog = [int(msog.group(2)), int(msog.group(4))]       # броски в створ
 
@@ -259,7 +306,7 @@ def parse_text(text: str):
     d = f"{md.group(3)}-{_MONTHS[md.group(2).lower()]:02d}-{int(md.group(1)):02d}"
     rec = {"date": d, "home": mh.group(1).strip(), "away": ma.group(1).strip(),
            "score": score, "reg_goals": reg, "status": status, "ot": ot, "so": so,
-           "sog": sog}
+           "sog": sog, "fin": fin.group(1)}
     if so and score[0] == score[1]:
         rec["warn"] = "буллиты, но счёт ничейный: неизвестно, кто выиграл"
 

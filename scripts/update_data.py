@@ -28,6 +28,13 @@ try:
 except P.Blocked as e:
     blocked = True
     print("ВНИМАНИЕ:", e)
+before = {k: dict(v) for k, v in P.load_games().items()}
+refreshed = []
+if not blocked:                         # перекачиваем игры, где мог остаться промежуточный счёт
+    try:
+        refreshed = P.refresh_stale(int(os.getenv("KHL_REFRESH_DAYS", "3")))
+    except Exception as e:
+        print("перепроверка протоколов не удалась:", repr(e))
 games = P.parse_new()
 ms = P.build_matches()
 Path("site/data").mkdir(parents=True, exist_ok=True)
@@ -43,6 +50,10 @@ except Exception as e:
 
 PJ = P.PDF_DIR / "players.json"
 store = P._load_json(PJ, {})
+for gid in refreshed:                   # счёт изменился -> составы этой игры тоже разбираем заново
+    k = str(gid)
+    if k not in games or games[k].get("score") != before.get(k, {}).get("score"):
+        store.pop(k, None)
 todo = [g for g, r in games.items() if not (r.get("bad") or r.get("warn")) and store.get(g, {}).get("v") != PL.VERSION]
 
 

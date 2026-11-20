@@ -16,6 +16,8 @@ import datetime as dt
 import json
 import logging
 import os
+import re
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -69,6 +71,59 @@ def parse_calendar(obj: dict, known: list[str]) -> list[dict]:
     out.sort(key=lambda x: (x["d"], x["t"], x["h"]))
     return out
 
+CAL_PAGES = ["https://www.khl.ru/calendar/{season}/00/", "https://www.khl.ru/calendar/"]
+CAND_LOG = Path(os.getenv("PDF_DIR", "data")) / P.SEASON_ID / "_calendar_candidates.txt"
+
+
+def _has_games(obj) -> bool:
+    try:
+        return bool(_games_of(obj)[0])
+    except Exception:
+        return False
+
+
+def discover() -> dict | None:
+    """Если KHL_CALENDAR_URL не задан: ищет на странице календаря и в её скриптах адреса, похожие на
+    запрос расписания, пробует их и берёт первый ответ с матчами. Найденные кандидаты пишет в
+    _calendar_candidates.txt — оттуда можно взять рабочий адрес для KHL_CALENDAR_URL."""
+    cands: list[str] = []
+    for page in CAL_PAGES:
+        base = page.format(season=P.SEASON_ID)
+        try:
+            html = P._open(base, timeout=40).decode("utf-8", "replace")
+        except Exception as e:
+            log.warning("календарь: страница %s не открылась: %r", base, e)
+            continue
+        blobs = [html]
+        for src in re.findall(r"<script[^>]+src=[\"']([^\"']+)[\"']", html)[:20]:
+            u = urllib.parse.urljoin(base, src)
+            if "khl.ru" not in u or "yandex" in u:
+                continue
+            try:
+                blobs.append(P._open(u, timeout=40).decode("utf-8", "replace"))
+            except Exception:
+                pass
+        for txt in blobs:
+            for m in re.finditer(r"[\"'`](/[^\"'`\s<>]*(?:calendar|schedule|games)[^\"'`\s<>]*)[\"'`]", txt, re.I):
+                u = urllib.parse.urljoin(base, m.group(1))
+                if u not in cands and not re.search(r"\.(?:css|png|jpe?g|svg|ico|woff2?)(?:\?|$)", u):
+                    cands.append(u)
+    try:
+        CAND_LOG.parent.mkdir(parents=True, exist_ok=True)
+        CAND_LOG.write_text("\n".join(cands), encoding="utf-8")
+    except Exception:
+        pass
+    for u in cands[:25]:
+        for url in dict.fromkeys([u.replace("{season}", P.SEASON_ID), u]):
+            try:
+                obj = json.loads(P._open(url, timeout=40).decode("utf-8", "replace"))
+            except Exception:
+                continue
+            if _has_games(obj):
+                log.info("календарь: найден рабочий адрес %s — впиши его в KHL_CALENDAR_URL", url)
+                return obj
+    return None
+
 
 def fetch() -> dict | None:
     """Скачивает календарь; если адреса нет или он не отвечает — берёт сохранённый файл."""
@@ -98,6 +153,10 @@ def fetch() -> dict | None:
             return json.loads(RAW.read_text(encoding="utf-8"))
         except Exception as e:
             log.warning("календарь: %s не прочитан: %r", RAW, e)
+    try:
+        return discover()                               # адрес не задан: пробуем найти его самим
+    except Exception as e:
+        log.warning("календарь: автопоиск не удался: %r", e)
     return None
 
 
