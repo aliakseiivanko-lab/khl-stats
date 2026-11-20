@@ -39,7 +39,7 @@ jobs:
           KHL_MISS_RETRY_H: "1"
           KHL_REFRESH_DAYS: "3"     # игры последних N дней перепроверяются: счёт мог быть промежуточным
           KHL_EXTRA_IDS: ""
-          KHL_CALENDAR_URL: ""      # адрес запроса календаря из DevTools (Сеть -> Fetch/XHR)
+          KHL_CALENDAR_URL: ""      # необязательно: запасной JSON-адрес календаря khl.ru; основной источник — championat.com
           KHL_CALENDAR_POST: ""     # если запрос POST — тело запроса из вкладки «Полезная нагрузка»
           PDF_DIR: data
           KHL_COOKIE: ${{ secrets.KHL_COOKIE }}
