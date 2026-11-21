@@ -1,0 +1,80 @@
+name: update-and-deploy
+on:
+  schedule:
+    # каждые 2 часа с 09:07 до 23:07 МСК (МСК = UTC+3)
+    - cron: "7 6,8,10,12,14,16,18,20 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["site/**", "scripts/**", ".github/workflows/**"]
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pypdf
+      - name: Скачать и разобрать протоколы
+        id: upd
+        continue-on-error: true      # сбой khl.ru не должен мешать выкатить сайт с уже имеющимися данными
+        timeout-minutes: 35
+        run: python scripts/update_data.py
+        env:
+          KHL_SEASON_ID: "1436"
+          KHL_FIRST_ID: "901978"
+          KHL_LAST_ID: "904000"
+          KHL_LOOKAHEAD: "120"
+          KHL_MISS_RETRY_H: "1"
+          KHL_REFRESH_DAYS: "3"     # игры последних N дней перепроверяются: счёт мог быть промежуточным
+          KHL_EXTRA_IDS: ""
+          KHL_CALENDAR_URL: ""      # необязательно: запасной JSON-адрес календаря khl.ru; основной источник — championat.com
+          KHL_CALENDAR_POST: ""     # если запрос POST — тело запроса из вкладки «Полезная нагрузка»
+          PDF_DIR: data
+          KHL_COOKIE: ${{ secrets.KHL_COOKIE }}
+      - name: Сохранить данные в репозиторий
+        run: |
+          git config user.name github-actions
+          git config user.email actions@github.com
+          git add -A data site/data
+          git diff --cached --quiet && exit 0
+          git commit -m "data: update"
+          for i in 1 2 3 4; do
+            # при конфликте данных (параллельный запуск) берём версию этого запуска: она свежее
+            if git pull --rebase -X theirs && git push; then exit 0; fi
+            git rebase --abort 2>/dev/null || true
+            sleep 5
+          done
+          echo "Не удалось запушить данные, сайт всё равно соберётся из локальных файлов"
+      - name: Собрать сайт (без PDF)
+        run: |
+          mkdir -p _site
+          rsync -a --exclude '*.pdf' site/ _site/
+          echo "Файлов в сайте: $(find _site -type f | wc -l), размер: $(du -sh _site | cut -f1)"
+          test -f _site/index.html
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: _site }
+      - name: Итог обновления данных
+        if: steps.upd.outcome == 'failure'
+        run: echo "::warning::update_data.py завершился с ошибкой (возможно, khl.ru блокирует запросы) — сайт выложен со старыми данными"
+
+  deploy:
+    needs: update
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.d.outputs.page_url }}
+    steps:
+      - id: d
+        uses: actions/deploy-pages@v4
