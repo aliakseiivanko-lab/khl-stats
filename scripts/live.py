@@ -73,13 +73,17 @@ def publish(games: list):
     text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     tok, repo = os.getenv("GITHUB_TOKEN"), os.getenv("GITHUB_REPOSITORY")
     if not (tok and repo):                              # локальный запуск: просто файл рядом с сайтом
+        if os.getenv("GITHUB_ACTIONS"):
+            log.error("НЕТ GITHUB_TOKEN: live.json не публикуется. Добавь в live.yml env: GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}")
         (ROOT / "site/data/live.json").write_text(text, encoding="utf-8")
         return
     d = Path(tempfile.mkdtemp())
     (d / "live.json").write_text(text, encoding="utf-8")
 
     def git(*a):
-        subprocess.run(["git", *a], cwd=d, check=True, capture_output=True)
+        r = subprocess.run(["git", *a], cwd=d, capture_output=True, text=True)
+        if r.returncode:
+            raise RuntimeError(f"git {a[0]}: {(r.stderr or r.stdout).replace(tok, '***')[:300]}")
     git("init", "-q")
     git("config", "user.name", "github-actions")
     git("config", "user.email", "actions@github.com")
@@ -87,6 +91,7 @@ def publish(games: list):
     git("add", "live.json")
     git("commit", "-q", "-m", "live")
     git("push", "-q", "-f", f"https://x-access-token:{tok}@github.com/{repo}.git", "live:live")
+    log.info("live.json опубликован в ветку live (%d игр)", len(games))
 
 
 STAT_KEYS = ("sog", "fo", "fo_all", "pen", "pim", "pp_goals", "pp_opps", "shg", "blk", "hit", "extra")
