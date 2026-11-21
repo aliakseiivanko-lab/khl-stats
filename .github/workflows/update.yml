@@ -40,11 +40,14 @@ jobs:
           KHL_CALENDAR_POST: ""     # если запрос POST — тело запроса из вкладки «Полезная нагрузка»
           PDF_DIR: data
           KHL_COOKIE: ${{ secrets.KHL_COOKIE }}
+      - name: Скачать эмблемы команд (только недостающие)
+        continue-on-error: true
+        run: python scripts/fetch_logos.py
       - name: Сохранить данные в репозиторий
         run: |
           git config user.name github-actions
           git config user.email actions@github.com
-          git add -A data site/data
+          git add -A data site/data site/logos
           git diff --cached --quiet && exit 0
           git commit -m "data: update"
           for i in 1 2 3 4; do
