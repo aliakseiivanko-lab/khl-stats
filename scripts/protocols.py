@@ -259,8 +259,9 @@ def _two(m, a=1, b=3):
     return [int(m.group(a)), int(m.group(b))]
 
 
-def parse_text(text: str):
-    """Текст протокола -> (запись | None, причина). Пары везде (хозяева, гости)."""
+def parse_text(text: str, partial: bool = False):
+    """Текст протокола -> (запись | None, причина). Пары везде (хозяева, гости).
+    partial=True — режим «лайв»: разбираем и незаконченный протокол (rec[\"live\"]=True)."""
     t = text.replace("\xa0", " ")
     fin = re.search(r"Окончание матча:\s*(\d{1,2}:\d{2})", t)
 
@@ -284,13 +285,13 @@ def parse_text(text: str):
 
     # Пока матч идёт, khl.ru уже отдаёт PDF с промежуточным счётом и блоком БРОСКИ.
     # Протокол считается готовым только после строки «Окончание матча: ЧЧ:ММ».
-    if not fin:
+    if not fin and not partial:
         return None, "not_finished"
     msog = re.search(r"БРОСКИ.*?ВСЕГО\s+ВСЕГО\s+(\d+)\s*-\s*(\d+)\s+(\d+)\s*-\s*(\d+)", t, re.S)
-    if not msog:
+    if not msog and not partial:
         return None, "нет блока БРОСКИ"
-    reg = [int(msog.group(1)), int(msog.group(3))]       # голы игры (без победного буллита?)
-    sog = [int(msog.group(2)), int(msog.group(4))]       # броски в створ
+    reg = [int(msog.group(1)), int(msog.group(3))] if msog else [0, 0]       # голы игры (без победного буллита?)
+    sog = [int(msog.group(2)), int(msog.group(4))] if msog else None         # броски в створ
 
     # итоговый счёт и статус («Основное время» / овертайм / буллиты) — из шапки
     mtop = re.search(r"ХОЗЯЕВА.*?ГОСТИ\s+(\d+)\s", t, re.S)
@@ -306,7 +307,7 @@ def parse_text(text: str):
     d = f"{md.group(3)}-{_MONTHS[md.group(2).lower()]:02d}-{int(md.group(1)):02d}"
     rec = {"date": d, "home": mh.group(1).strip(), "away": ma.group(1).strip(),
            "score": score, "reg_goals": reg, "status": status, "ot": ot, "so": so,
-           "sog": sog, "fin": fin.group(1)}
+           "sog": sog, "fin": fin.group(1) if fin else None, "live": not fin}
     if so and score[0] == score[1]:
         rec["warn"] = "буллиты, но счёт ничейный: неизвестно, кто выиграл"
 
