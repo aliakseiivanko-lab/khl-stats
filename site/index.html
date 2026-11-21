@@ -245,10 +245,10 @@ const d=await wget({action:'query',prop:'imageinfo',iiprop:'url',iiurlwidth:240,
 Object.values(q.pages||{}).forEach(p=>{const i=(p.imageinfo||[])[0];if(i)url[p.title]=i.thumburl||i.url});
 for(const[t,f]of Object.entries(pick)){const u=url[nm[f]||f];if(u)LGW[t]=u}
 try{localStorage.setItem('khl-wl3',JSON.stringify(LGW))}catch(e){}render()}
-const recent=()=>{const sn=season(),r=[...M].filter(m=>m.season===sn).sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0).slice(0,10);if(!r.length)return'';
+const recent=()=>{const sn=season(),lv0=LV.games.filter(g=>!g.live&&g.finished&&!M.some(m=>m.home===g.home&&m.away===g.away&&m.date===g.date)).map(g=>({home:g.home,away:g.away,date:g.date,season:sn,home_goals:g.score[0],away_goals:g.score[1],_s:g.score[0]+':'+g.score[1]})),r=[...M,...lv0].filter(m=>m.season===sn).sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0).slice(0,10);if(!r.length)return'';
 const tl=(x,rv)=>`<a href="#" ${go({view:'team',t:x,venue:'all',win:'s',tab:'',st:'',mo:'',tm:''},{})}>${rv?esc(x)+cr(x,26):cr(x,26)+esc(x)}</a>`;let last='';
 return `<h3 class="sh">Последние результаты</h3><div class="card">${r.map(m=>{const hw=m.home_goals>m.away_goals,aw=m.away_goals>m.home_goals,hd=m.date!==last?`<div class="dl">${m.date.split('-').reverse().slice(0,2).join('.')}</div>`:'';last=m.date;
-return hd+`<div class="fx"><span class="h${hw?' w':''}">${tl(m.home,1)}</span><span class="s">${res(m)}</span><span class="a${aw?' w':''}">${tl(m.away)}</span></div>`}).join('')}</div><p class="m"><a href="#view=cal&st=all" style="color:var(--link)">Весь календарь →</a></p>`};
+return hd+`<div class="fx"><span class="h${hw?' w':''}">${tl(m.home,1)}</span><span class="s">${m._s||res(m)}</span><span class="a${aw?' w':''}">${tl(m.away)}</span></div>`}).join('')}</div><p class="m"><a href="#view=cal&st=all" style="color:var(--link)">Весь календарь →</a></p>`};
 function countUp(){document.querySelectorAll('.kpi b').forEach(b=>{const t=b.textContent.trim();if(!/^\d+(\.\d+)?$/.test(t))return;const v=parseFloat(t),d=(t.split('.')[1]||'').length,t0=performance.now();
 const st=n=>{const k=Math.min(1,(n-t0)/800),e=1-Math.pow(1-k,3);b.textContent=(v*e).toFixed(d);if(k<1)requestAnimationFrame(st)};requestAnimationFrame(st)})}
 
@@ -262,10 +262,10 @@ if(!d){if(LV.ok){LV.ok=false;render()}return}
 const ch=sig!==LV.sig||!LV.ok;LV={games:d.games||[],updated:d.updated,ok:true,sig};if(ch)render()}
 const liveOf=(h,a)=>LV.games.find(g=>g.home===h&&g.away===a);
 const startMs=f=>f.t?Date.parse(`${f.d}T${f.t}:00+03:00`):NaN;
-const inPlay=f=>{if(f.m)return false;const s=startMs(f),n=Date.now();return s<=n&&n<=s+3.5*36e5};
+const inPlay=f=>{if(f.m)return false;const g=liveOf(f.h,f.a);if(g)return !!g.live;const s=startMs(f),n=Date.now();return n>=s&&n<=s+(LV.ok?40*6e4:3*36e5)};
 const liveHref=f=>{const g=liveOf(f.h,f.a);return g?`#view=live&id=${g.id}`:`#view=live&h=${encodeURIComponent(f.h)}&a=${encodeURIComponent(f.a)}`};
 const liveTag=(f,sp)=>{const g=liveOf(f.h,f.a),T_=sp?'span':'a',at=u=>sp?'':` href="${u}"`;return g?`<${T_} class="lvb"${at('#view=live&id='+g.id)}>${g.live?'<i class="lv"></i>':''}${g.score[0]}:${g.score[1]}</${T_}>`:inPlay(f)?`<${T_} class="lvb"${at(liveHref(f))}><i class="lv"></i>LIVE</${T_}>`:''};
-const liveCards=()=>{if(!LV.games.length)return'';return `<h3 class="sh"><i class="lv"></i>Идёт сейчас</h3><div class="strip">${LV.games.map(x=>`<a class="mc lc" href="#view=live&id=${x.id}"><span class="m">${x.live?'<i class="lv"></i>LIVE':'Завершён'}${x.time?' · старт '+x.time:''}</span><span class="tm">${cr(x.home,28)}<b>${esc(x.home)}</b><em>${x.score[0]}</em></span><span class="tm">${cr(x.away,28)}<b>${esc(x.away)}</b><em>${x.score[1]}</em></span></a>`).join('')}</div>`};
+const liveCards=()=>{if(!LV.games.length)return'';return `<h3 class="sh">${LV.games.some(x=>x.live)?'<i class="lv"></i>Идёт сейчас':'Только что завершились'}</h3><div class="strip">${LV.games.map(x=>`<a class="mc lc" href="#view=live&id=${x.id}"><span class="m">${x.live?'<i class="lv"></i>LIVE':'Завершён'}${x.time?' · старт '+x.time:''}</span><span class="tm">${cr(x.home,28)}<b>${esc(x.home)}</b><em>${x.score[0]}</em></span><span class="tm">${cr(x.away,28)}<b>${esc(x.away)}</b><em>${x.score[1]}</em></span></a>`).join('')}</div>`};
 const clk=iso=>iso?new Date(iso).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'–';
 function vLive(p){const g=LV.games.find(x=>String(x.id)===String(p.id))||(p.h&&LV.games.find(x=>x.home===p.h&&x.away===p.a)),back='<p class="m"><a href="#" style="color:var(--link)">← На главную</a></p>';
 if(!g&&p.h&&p.a){const f=fixtures().find(x=>x.h===p.h&&x.a===p.a&&!x.m);return `<div class="lvh"><div class="lt">${cr(p.h,60)}<b>${esc(p.h)}</b></div><div class="ls"><div class="sc">–:–</div><div class="st">${f&&inPlay(f)?'<i class="lv"></i>Матч идёт':'Матч ещё не начался'}${f&&f.t?' · старт '+f.t+' МСК':''}</div></div><div class="lt">${cr(p.a,60)}<b>${esc(p.a)}</b></div></div>
