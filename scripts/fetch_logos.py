@@ -31,25 +31,26 @@ def get(url, binary=False):
     return data if binary else json.loads(data.decode("utf-8"))
 
 
-def page_image(title):
-    q = {"action": "query", "format": "json", "redirects": 1, "prop": "pageimages",
-         "piprop": "original", "titles": title}
-    pages = get(API + "?" + urllib.parse.urlencode(q)).get("query", {}).get("pages", {})
-    for p in pages.values():
-        src = (p.get("original") or {}).get("source")
-        if src:
-            return src
-    return None
+BAD = re.compile(r"flag|map|jersey|форма|kit|arena|арена|stadium|стадион|дворец|player|commons-logo|wikidata|wiki|edit|question|symbol|icon|ambox|folder|nuvola|portal|stub|increase|decrease|steady", re.I)
+GOOD = re.compile(r"logo|лого|эмбл|emblem|crest|герб", re.I)
 
 
-def search_image(team):
-    q = {"action": "query", "format": "json", "generator": "search", "gsrlimit": 1,
-         "gsrsearch": f"{team} хоккейный клуб КХЛ", "prop": "pageimages", "piprop": "original"}
-    pages = get(API + "?" + urllib.parse.urlencode(q)).get("query", {}).get("pages", {})
-    for p in pages.values():
-        src = (p.get("original") or {}).get("source")
-        if src:
-            return src
+def api(**q):
+    return get(API + "?" + urllib.parse.urlencode({"format": "json", "redirects": 1, **q}))
+
+
+def logo_url(title):
+    """Ищет среди файлов страницы клуба эмблему (svg/png с «лого/эмблема/logo» в имени) и отдаёт её адрес."""
+    pages = api(action="query", prop="images", imlimit="max", titles=title).get("query", {}).get("pages", {})
+    names = [i["title"] for p in pages.values() for i in p.get("images", [])]
+    cand = [n for n in names if re.search(r"\.(svg|png)$", n, re.I) and not BAD.search(n)]
+    pick = next((n for n in cand if GOOD.search(n)), cand[0] if cand else None)
+    if not pick:
+        return None
+    info = api(action="query", prop="imageinfo", iiprop="url", iiurlwidth=300, titles=pick).get("query", {}).get("pages", {})
+    for p in info.values():
+        ii = (p.get("imageinfo") or [{}])[0]
+        return ii.get("thumburl") or ii.get("url")
     return None
 
 
@@ -64,12 +65,11 @@ def main():
         if t in lst and (LOGOS / lst[t]).exists():
             continue
         try:
-            src = page_image(TITLES[t]) if t in TITLES else None
-            src = src or search_image(t)
-            ext = Path(urllib.parse.urlparse(src or "").path).suffix.lower()
-            if not src or ext not in (".svg", ".png"):      # jpg — почти всегда фото, а не эмблема
-                print(f"{t}: подходящей эмблемы не нашли ({src})")
+            src = logo_url(TITLES[t]) if t in TITLES else None
+            if not src:
+                print(f"{t}: подходящей эмблемы не нашли")
                 continue
+            ext = ".png" if ".png" in src.lower() else ".svg"
             slug = re.sub(r"[^a-z0-9]+", "-", f"team{len(lst) + 1}").strip("-")
             name = f"{slug}{ext}"
             (LOGOS / name).write_bytes(get(src, binary=True))
