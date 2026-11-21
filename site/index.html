@@ -140,6 +140,11 @@ h1 a{white-space:nowrap}header .m{max-width:44%;line-height:1.3}td a{text-decora
 .lvf{margin:14px 2px 0;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}.lvf button{padding:5px 12px;font-size:13px}
 .cl{text-align:center;color:var(--m);font-size:12px;margin-top:12px}.cmp{display:grid;grid-template-columns:54px 1fr 54px;align-items:center;gap:10px;padding:5px 0 8px}
 .cmp b{font:700 15px var(--fd)}.cmp b:last-child{text-align:right}.bar{display:flex;gap:3px;height:9px}.bar i{border-radius:5px;min-width:3px;transition:flex .6s ease}.bar .l{background:var(--a)}.bar .r{background:var(--link)}
+
+.qk{display:grid;gap:0 14px;grid-template-columns:1fr}@media(min-width:760px){.qk{grid-template-columns:1fr 1fr}}
+.qh{font:700 13px var(--fd);padding:14px 0 4px}.qr{display:flex;align-items:center;gap:8px;padding:10px 0;color:inherit;text-decoration:none}.qr+.qr{border-top:1px solid var(--b)}
+.qr .dt{min-width:40px;font-size:12px}.qo{flex:1;min-width:0;display:flex;align-items:center;overflow-wrap:anywhere}.qo .cr{margin-right:7px}.qr .ha{min-width:52px;font-size:10.5px;padding:3px 6px}
+.rs{display:inline-flex;align-items:center;gap:6px;font:700 13px var(--fd);white-space:nowrap}.qk .card .m{padding:6px 0 10px}
 </style></head><body><main>
 <header><h1><a href="#">Статистика КХЛ</a></h1><div class="m" id="upd"></div></header>
 <nav id="nav"><a data-v="list" href="#">Команды</a><a data-v="table" href="#view=table&conf=all">Таблица</a><a data-v="cal" href="#view=cal&st=all">Календарь</a><a data-v="league" href="#view=league&cat=pts&venue=all&win=s">Статистика лиги</a><a data-v="vs" href="#view=vs&a=&b=&venue=all&win=s">Сравнение</a></nav>
@@ -218,8 +223,8 @@ const abbr=t=>(TM[t]||[String(t).slice(0,3).toUpperCase()])[0];
 // эмблема: фирменный щит с монограммой; если в site/logos/ есть файл (см. logos/list.json) — показываем его
 const cr=(t,z=32)=>{const l=LG[t]?'logos/'+LG[t]:WSKIP.has(t)?null:LGW[t],x=TM[t]||[String(t).replace(/[^А-Яа-яA-Za-z]/g,'').slice(0,3).toUpperCase()];
 return `<span class="cr${l?' lg':''}" style="--z:${z}px;${tc(t)}" data-m="${esc(x[0])}">${l?`<img src="${esc(l)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.classList.remove('lg');this.remove()">`:''}</span>`};
-const strip=()=>{try{const td=todayS(),fx=fixtures().filter(f=>!f.m&&f.d>=td).slice(0,12);if(!fx.length)return'';
-return `<h3 class="sh">Ближайшие матчи</h3><div class="strip">${fx.map(f=>`<a class="mc" href="#view=cal&st=all"><span class="m">${f.d===td?'<i class="lv"></i>Сегодня':f.d.slice(8)+'.'+f.d.slice(5,7)} · ${f.t?f.t+' МСК':'время уточняется'}</span><span class="tm">${cr(f.h,28)}<b>${esc(abbr(f.h))}</b></span><span class="tm">${cr(f.a,28)}<b>${esc(abbr(f.a))}</b></span></a>`).join('')}</div>`}catch(e){return''}};
+const strip=()=>{try{const td=todayS(),fx=fixtures().filter(f=>!f.m&&f.d>=td&&!liveOf(f.h,f.a)).slice(0,12);if(!fx.length)return'';
+return `<h3 class="sh">Ближайшие матчи</h3><div class="strip">${fx.map(f=>`<a class="mc${inPlay(f)?' lc':''}" href="${inPlay(f)?liveHref(f):'#view=cal&st=all'}"><span class="m">${inPlay(f)?'<i class="lv"></i>Идёт сейчас · старт '+f.t:(f.d===td?'<i class="lv"></i>Сегодня':f.d.slice(8)+'.'+f.d.slice(5,7))+' · '+(f.t?f.t+' МСК':'время уточняется')}</span><span class="tm">${cr(f.h,28)}<b>${esc(abbr(f.h))}</b></span><span class="tm">${cr(f.a,28)}<b>${esc(abbr(f.a))}</b></span></a>`).join('')}</div>`}catch(e){return''}};
 
 // эмблемы подтягиваются из русской Википедии прямо в браузере и запоминаются на устройстве; свои файлы из logos/ важнее
 const WAPI='https://ru.wikipedia.org/w/api.php',wget=q=>fetch(WAPI+'?'+new URLSearchParams({format:'json',origin:'*',redirects:1,...q})).then(r=>r.json());
@@ -255,10 +260,15 @@ const sig=d?JSON.stringify(d.games||[])+(d.updated||''):'';
 if(!d){if(LV.ok){LV.ok=false;render()}return}
 const ch=sig!==LV.sig||!LV.ok;LV={games:d.games||[],updated:d.updated,ok:true,sig};if(ch)render()}
 const liveOf=(h,a)=>LV.games.find(g=>g.home===h&&g.away===a);
-const liveTag=f=>{const g=liveOf(f.h,f.a);return g?`<a class="lvb" href="#view=live&id=${g.id}">${g.live?'<i class="lv"></i>':''}${g.score[0]}:${g.score[1]}</a>`:''};
+const startMs=f=>f.t?Date.parse(`${f.d}T${f.t}:00+03:00`):NaN;
+const inPlay=f=>{if(f.m)return false;const s=startMs(f),n=Date.now();return s<=n&&n<=s+3.5*36e5};
+const liveHref=f=>{const g=liveOf(f.h,f.a);return g?`#view=live&id=${g.id}`:`#view=live&h=${encodeURIComponent(f.h)}&a=${encodeURIComponent(f.a)}`};
+const liveTag=(f,sp)=>{const g=liveOf(f.h,f.a),T_=sp?'span':'a',at=u=>sp?'':` href="${u}"`;return g?`<${T_} class="lvb"${at('#view=live&id='+g.id)}>${g.live?'<i class="lv"></i>':''}${g.score[0]}:${g.score[1]}</${T_}>`:inPlay(f)?`<${T_} class="lvb"${at(liveHref(f))}><i class="lv"></i>LIVE</${T_}>`:''};
 const liveCards=()=>{if(!LV.games.length)return'';return `<h3 class="sh"><i class="lv"></i>Идёт сейчас</h3><div class="strip">${LV.games.map(x=>`<a class="mc lc" href="#view=live&id=${x.id}"><span class="m">${x.live?'<i class="lv"></i>LIVE':'Завершён'}${x.time?' · старт '+x.time:''}</span><span class="tm">${cr(x.home,28)}<b>${esc(x.home)}</b><em>${x.score[0]}</em></span><span class="tm">${cr(x.away,28)}<b>${esc(x.away)}</b><em>${x.score[1]}</em></span></a>`).join('')}</div>`};
 const clk=iso=>iso?new Date(iso).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'–';
-function vLive(p){const g=LV.games.find(x=>String(x.id)===String(p.id)),back='<p class="m"><a href="#" style="color:var(--link)">← На главную</a></p>';
+function vLive(p){const g=LV.games.find(x=>String(x.id)===String(p.id))||(p.h&&LV.games.find(x=>x.home===p.h&&x.away===p.a)),back='<p class="m"><a href="#" style="color:var(--link)">← На главную</a></p>';
+if(!g&&p.h&&p.a){const f=fixtures().find(x=>x.h===p.h&&x.a===p.a&&!x.m);return `<div class="lvh"><div class="lt">${cr(p.h,60)}<b>${esc(p.h)}</b></div><div class="ls"><div class="sc">–:–</div><div class="st">${f&&inPlay(f)?'<i class="lv"></i>Матч идёт':'Матч ещё не начался'}${f&&f.t?' · старт '+f.t+' МСК':''}</div></div><div class="lt">${cr(p.a,60)}<b>${esc(p.a)}</b></div></div>
+<div class="lvf m">${LV.ok?'Протокол матча на khl.ru ещё не опубликован — страница обновится сама, как только появятся данные.':'Живые данные пока не поступают: проверьте, что включён workflow «live» (Actions).'} Следующая проверка через <b id="lvcd">30</b> с <button data-lvr>Обновить</button></div>`+back}
 if(!g)return `<div class="hero"><h2>Матч</h2></div><p class="m">${LV.ok?'Этого матча нет среди идущих сейчас — возможно, он уже закончился. Результат появится в календаре после ближайшего обновления данных.':'Живые данные пока недоступны: сбор ещё не запускался или матчей сейчас нет.'}</p>`+back;
 const pr=(l,v,fmt)=>v?{l,a:v[0],b:v[1],fa:fmt?fmt(0):v[0],fb:fmt?fmt(1):v[1]}:null,pp=g.pp_goals&&g.pp_opps;
 const rows=[pr('Броски в створ',g.sog),pr('Вбрасывания',g.fo),pp?{l:'Большинство (голы/попытки)',a:g.pp_opps[0],b:g.pp_opps[1],fa:g.pp_goals[0]+'/'+g.pp_opps[0],fb:g.pp_goals[1]+'/'+g.pp_opps[1]}:null,
@@ -273,11 +283,18 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-lvr]'))loadLive
 setInterval(()=>{if(document.hidden)return;const act=LV.games.some(g=>g.live)||P().view==='live',age=Date.now()-lvAt;
 const cd=document.getElementById('lvcd');if(cd)cd.textContent=Math.max(0,30-Math.floor(age/1000));
 if(age>=(act?30000:300000))loadLive()},1000);
+
+const teamQuick=t=>{const td=todayS(),all=fixtures().filter(f=>f.h===t||f.a===t),past=all.filter(f=>f.m).slice(-3).reverse(),next=all.filter(f=>!f.m&&f.d>=td).slice(0,3),dd=d=>d.slice(8)+'.'+d.slice(5,7);
+const row=f=>{const h=f.h===t,o=h?f.a:f.h,ch=`<span class="ha${h?'':' aw'}">${h?'Дом':'Выезд'}</span>`;let r;
+if(f.m){const me=pov(f.m,t);r=`<b class="rs">${dot(me)}${me.gf}:${me.ga}${me.so?' (Б)':me.ot?' (ОТ)':''}</b>`}else r=liveTag(f,1)||`<span class="m">${f.t?f.t+' МСК':'время уточняется'}</span>`;
+return `<a class="qr" ${(f.m?0:inPlay(f))?`href="${liveHref(f)}"`:`href="#" ${go({view:'team',t,venue:'all',win:'s',tab:'games'},{})}`}><span class="dt">${dd(f.d)}</span>${ch}<span class="qo">${cr(o,22)}${esc(o)}</span>${r}</a>`};
+return `<div class="qk"><div class="card"><div class="qh">Последние игры</div>${past.map(row).join('')||'<p class="m">Пока нет сыгранных матчей</p>'}</div><div class="card"><div class="qh">Ближайшие игры</div>${next.map(row).join('')||'<p class="m">Расписание пока не загружено</p>'}</div></div>`};
 function vTeam(p){const t=p.t,s=season(),v=p.venue||'all',w=p.win||'s';
 if(!T.includes(t))return vList();
 let h=`<div class="th" style="${tc(t)}">${cr(t,68)}<div><h2>${esc(t)}</h2><div class="m">Сезон ${s}</div></div></div>`,body;
 const all=sel(t,null,'all',s),ex=[['team',null,'Отчёт'],['cmp',null,'⚖️ Дом vs выезд'],['last',null,'🕐 Последняя игра']];
 const mode=p.tab==='roster'||p.tab==='games'?p.tab:v==='cmp'||v==='last'?v:'team';
+h+=teamQuick(t);
 h+=`<div class="row">${[['team','Отчёт'],['games','📅 Календарь'],['roster','👥 Состав'],['cmp','⚖️ Дом vs выезд'],['last','🕐 Последняя игра']].map(([k,l])=>
 `<button class="${mode===k?'on':''}" ${go({tab:k==='roster'||k==='games'?k:'',venue:k==='team'||k==='roster'||k==='games'?'all':k,win:'s'},p)}>${l}</button>`).join('')}
 <button data-go="view=vs&a=${encodeURIComponent(t)}&b=&venue=all&win=s">⚔️ Сравнить с…</button></div>`;
