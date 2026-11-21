@@ -24,3 +24,4 @@ jobs:
           KHL_FIRST_ID: "901978"
           PDF_DIR: data
           KHL_COOKIE: ${{ secrets.KHL_COOKIE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # нужен, чтобы публиковать live.json в ветку live
