@@ -105,6 +105,24 @@ button:active,.mc:active,nav a:active{transform:scale(.96)}
 .dl{font:600 12px "Onest",sans-serif;color:var(--m);padding:14px 0 2px}.dl+.fx{border-top:0}.fx+.dl{border-top:1px solid var(--b);margin-top:4px}
 .fx .s{transition:transform .2s}.fx:hover .s{transform:scale(1.08)}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important}}
+
+/* --- исправление ширины: шапка больше не раздувает страницу на телефоне --- */
+:root{--W:1120px;--gx:max(14px,calc((100vw - var(--W))/2 + 14px))}
+main{max-width:var(--W)}
+header{margin-inline:calc(50% - 50vw);padding-inline:var(--gx)}
+header::before{inset:0;clip-path:none}
+header::after{left:var(--gx);right:var(--gx)}
+h1{font-size:clamp(20px,3vw,28px)}
+.ha{display:inline-flex;align-items:center;justify-content:center;min-width:60px;padding:3px 9px;border-radius:999px;font:600 11px "Onest",sans-serif;background:var(--ice);color:var(--link)}
+.ha.aw{background:none;box-shadow:inset 0 0 0 1px var(--b);color:var(--m)}
+.h2c{display:block}.hc2{min-width:0}
+@media(min-width:701px){nav{max-width:780px}}
+@media(min-width:960px){
+.h2c{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:32px;align-items:start}
+.hc1 .sh:first-child{margin-top:8px}.hc2 .row{margin-top:20px}
+.grid{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
+.card:has(.fx,.g,.up){max-width:860px}
+.kpi{max-width:860px}}
 </style></head><body><main>
 <header><h1><a href="#">Статистика КХЛ</a></h1><div class="m" id="upd"></div></header>
 <nav id="nav"><a data-v="list" href="#">Команды</a><a data-v="table" href="#view=table&conf=all">Таблица</a><a data-v="cal" href="#view=cal&st=all">Календарь</a><a data-v="league" href="#view=league&cat=pts&venue=all&win=s">Статистика лиги</a><a data-v="vs" href="#view=vs&a=&b=&venue=all&win=s">Сравнение</a></nav>
@@ -188,9 +206,9 @@ return `<h3 class="sh">Ближайшие матчи</h3><div class="strip">${fx
 
 // эмблемы подтягиваются из русской Википедии прямо в браузере и запоминаются на устройстве; свои файлы из logos/ важнее
 const WAPI='https://ru.wikipedia.org/w/api.php',wget=q=>fetch(WAPI+'?'+new URLSearchParams({format:'json',origin:'*',redirects:1,...q})).then(r=>r.json());
-const okf=n=>/\.(svg|png)$/i.test(n)&&!/flag|map|jersey|форма|kit|arena|арена|stadium|стадион|дворец|player|commons-logo|wikidata|wiki|edit|question|symbol|icon|ambox|folder|nuvola|portal|stub|increase|decrease|steady/i.test(n);
+const okf=n=>/\.(svg|png)$/i.test(n)&&!/flag|map|jersey|форма|kit|arena|арена|stadium|стадион|дворец|player|commons-logo|wikidata|wiki|edit|question|symbol|icon|ambox|folder|nuvola|portal|stub|increase|decrease|steady|emblem-|important|attention|warning|notice|alert|exclam|disambig|redirect|wikiquote|wikisource|oojs|ooui|padlock|lock|speaker|sound|audio|crystal|gnome|tango|cscr/i.test(n);
 const pickf=a=>{const c=a.filter(okf);return c.find(n=>/logo|лого|эмбл|emblem|crest|герб/i.test(n))||c[0]};
-async function wikiLogos(){let c={};try{c=JSON.parse(localStorage.getItem('khl-wl2')||'{}')}catch(e){}Object.assign(LGW,c);
+async function wikiLogos(){let c={};try{c=JSON.parse(localStorage.getItem('khl-wl3')||'{}')}catch(e){}Object.assign(LGW,c);
 const need=T.filter(t=>!LGW[t]&&!LG[t]&&WT[t]);if(!need.length)return;
 const by={};need.forEach(t=>by[WT[t]]=t);const files={},map={};let cont={};
 for(let i=0;i<6;i++){const d=await wget({action:'query',prop:'images',imlimit:'max',titles:Object.keys(by).join('|'),...cont}),q=d.query||{};
@@ -203,7 +221,7 @@ const d=await wget({action:'query',prop:'imageinfo',iiprop:'url',iiurlwidth:240,
 (q.normalized||[]).forEach(x=>nm[x.from]=x.to);
 Object.values(q.pages||{}).forEach(p=>{const i=(p.imageinfo||[])[0];if(i)url[p.title]=i.thumburl||i.url});
 for(const[t,f]of Object.entries(pick)){const u=url[nm[f]||f];if(u)LGW[t]=u}
-try{localStorage.setItem('khl-wl2',JSON.stringify(LGW))}catch(e){}render()}
+try{localStorage.setItem('khl-wl3',JSON.stringify(LGW))}catch(e){}render()}
 const recent=()=>{const sn=season(),r=[...M].filter(m=>m.season===sn).sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0).slice(0,10);if(!r.length)return'';
 const tl=(x,rv)=>`<a href="#" ${go({view:'team',t:x,venue:'all',win:'s',tab:'',st:'',mo:'',tm:''},{})}>${rv?esc(x)+cr(x,26):cr(x,26)+esc(x)}</a>`;let last='';
 return `<h3 class="sh">Последние результаты</h3><div class="card">${r.map(m=>{const hw=m.home_goals>m.away_goals,aw=m.away_goals>m.home_goals,hd=m.date!==last?`<div class="dl">${m.date.split('-').reverse().slice(0,2).join('.')}</div>`:'';last=m.date;
@@ -277,7 +295,7 @@ const done=fx.filter(f=>f.m),up=fx.filter(f=>!f.m),nx=up.find(f=>f.d>=td)||up[0]
 const list=st==='up'?up:st==='done'?done.slice().reverse():fx;
 let h=chips(ST,st,'st',p)+chips(VEN,v,'venue',p);
 if(!fx.length)return h+'<p>Матчей по этому фильтру нет.</p>'+noSched();
-const opp=f=>f.h===t?f.a:f.h,vs=f=>f.h===t?'vs':'@';
+const opp=f=>f.h===t?f.a:f.h,vs=f=>f.h===t?'<span class="ha">Дом</span>':'<span class="ha aw">Выезд</span>';
 h+=`<div class="pills"><span>Сыграно ${done.length}</span><span>Впереди ${up.length}</span>${nx?`<span>Следующий матч: ${dm(nx.d)} ${vs(nx)} ${esc(opp(nx))}${nx.t?' · '+nx.t+' МСК':''}</span>`:''}</div>`;
 if(!list.length)return h+'<p>Матчей по этому фильтру нет.</p>'+noSched();
 h+=`<div class="card">`+list.map(f=>{const dd=`<span class="dt">${dm(f.d)} ${WD(f.d)}</span>`;
@@ -340,8 +358,8 @@ return `<h2>${name}</h2><div class="m">Сезон ${s} · ${rows.length} ком�
 `<div class="card"><table><tr><th>Команда</th><th>И</th><th>В</th><th>ВО</th><th>ПО</th><th>П</th><th>Ш</th><th>РШ</th><th>О</th></tr>`+
 rows.map((o,i)=>`<tr><td><span class="rk r${i<3?i+1:0}">${i+1}</span>${cr(o.t,24)}<a href="#" style="color:inherit" ${go({view:'team',t:o.t,venue:'all',win:'s'},{})}>${esc(o.t)}</a></td><td>${o.gp}</td><td>${o.w}</td><td>${o.wo}</td><td>${o.lo}</td><td>${o.l}</td><td>${o.gf}-${o.ga}</td><td>${sgn(o.gf-o.ga)}</td><td><b>${o.pts}</b></td></tr>`).join('')+'</table></div>'+
 '<p class="m">В — победы в основное время, ВО — победы в ОТ или по буллитам, ПО — поражения в ОТ или по буллитам, П — поражения в основное время. Ш — забитые и пропущенные (без победного буллита), РШ — разница. Места: очки, затем победы в основное время, все победы, разница шайб, забитые.</p>'}
-function vList(){return `${strip()}${recent()}<div class="row"><button ${go({view:'table',conf:'all'},{})}>🏆 Турнирная таблица</button><button ${go({view:'cal',st:'all'},{})}>📅 Календарь лиги</button><button ${go({view:'league',cat:'pts',venue:'all',win:'s'},{})}>📊 Статистика лиги</button><button data-go="view=vs&a=&b=&venue=all&win=s">⚔️ Сравнить две команды</button></div>
-<input id="q" type="search" placeholder="Найти команду…"><div class="grid" id="tg">${T.map(t=>`<button ${go({view:'team',t,venue:'all',win:'s'},{})}>${cr(t,38)}<span>${esc(t)}</span></button>`).join('')}</div>`}
+function vList(){return `${strip()}<div class="h2c"><div class="hc1">${recent()}</div><div class="hc2"><div class="row"><button ${go({view:'table',conf:'all'},{})}>🏆 Турнирная таблица</button><button ${go({view:'cal',st:'all'},{})}>📅 Календарь лиги</button><button ${go({view:'league',cat:'pts',venue:'all',win:'s'},{})}>📊 Статистика лиги</button><button data-go="view=vs&a=&b=&venue=all&win=s">⚔️ Сравнить две команды</button></div>
+<input id="q" type="search" placeholder="Найти команду…"><div class="grid" id="tg">${T.map(t=>`<button ${go({view:'team',t,venue:'all',win:'s'},{})}>${cr(t,38)}<span>${esc(t)}</span></button>`).join('')}</div></div></div>`}
 
 function render(){const p=P(),el=$('#app'),nv=['league','vs','table','cal'].includes(p.view)?p.view:'list';
 document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.v===nv));
