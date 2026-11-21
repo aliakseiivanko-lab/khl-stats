@@ -85,6 +85,26 @@ td .cr{vertical-align:-6px;margin-right:8px}
 .up .o,.g summary .o{display:inline-flex;align-items:center;gap:6px}.g summary .o .cr{margin-right:3px}
 .card{border-radius:24px}
 nav{background:color-mix(in srgb,var(--c) 88%,transparent);backdrop-filter:blur(14px)}
+
+@keyframes up{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes pop{from{opacity:0;transform:scale(.9) translateY(8px)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 #e1283c80}60%{box-shadow:0 0 0 8px #e1283c00}}
+@keyframes float{0%,100%{transform:translate(0,0) rotate(0)}50%{transform:translate(-14px,10px) rotate(12deg)}}
+@keyframes wig{25%{transform:rotate(-8deg) scale(1.1)}60%{transform:rotate(6deg) scale(1.1)}}
+@keyframes sweep{to{background-position:-200% 0}}
+#app.in>*{animation:up .55s cubic-bezier(.2,.7,.2,1) both}
+#app.in>*:nth-child(2){animation-delay:.06s}#app.in>*:nth-child(3){animation-delay:.12s}#app.in>*:nth-child(4){animation-delay:.18s}#app.in>*:nth-child(n+5){animation-delay:.24s}
+#app.in .grid button,#app.in .strip .mc{animation:pop .45s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i,0)*35ms)}
+#app.in .card tr,#app.in .fx,#app.in .pills span{animation:fade .5s both;animation-delay:calc(var(--i,0)*30ms + .1s)}
+.cr img{animation:fade .5s both}.grid button:hover .cr,.mc:hover .cr,.fx a:hover .cr{animation:wig .6s}
+h1 a::before{animation:pulse 2.8s infinite}.th::after{animation:float 9s ease-in-out infinite}
+header::after{background:linear-gradient(90deg,var(--a) 0 36px,#ffffff26 36px 40%,#ffffff70 50%,#ffffff26 60%) 0 0/200% 100%;animation:sweep 6s linear infinite}
+button:active,.mc:active,nav a:active{transform:scale(.96)}
+.lv{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--a);margin-right:6px;animation:pulse 1.6s infinite}
+.dl{font:600 12px "Onest",sans-serif;color:var(--m);padding:14px 0 2px}.dl+.fx{border-top:0}.fx+.dl{border-top:1px solid var(--b);margin-top:4px}
+.fx .s{transition:transform .2s}.fx:hover .s{transform:scale(1.08)}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important}}
 </style></head><body><main>
 <header><h1><a href="#">Статистика КХЛ</a></h1><div class="m" id="upd"></div></header>
 <nav id="nav"><a data-v="list" href="#">Команды</a><a data-v="table" href="#view=table&conf=all">Таблица</a><a data-v="cal" href="#view=cal&st=all">Календарь</a><a data-v="league" href="#view=league&cat=pts&venue=all&win=s">Статистика лиги</a><a data-v="vs" href="#view=vs&a=&b=&venue=all&win=s">Сравнение</a></nav>
@@ -157,14 +177,39 @@ const chips=(list,cur,key,p)=>`<div class="seg">${list.map(([k,l])=>`<button cla
 const nWin=w=>w==='s'||!w?null:+w,per=w=>nWin(w)?`последние ${w} матчей`:'весь сезон';
 
 const TM={'Авангард':['АВГ','#d32030','#1b3a7c'],'Автомобилист':['АВТ','#0b3f8c','#e0a800'],'Адмирал':['АДМ','#0b3c7a','#2f8fd8'],'Ак Барс':['АКБ','#0a7d3b','#c8102e'],'Амур':['АМУ','#0b4a96','#e8780a'],'Барыс':['БАР','#0aa0dd','#0a2a5c'],'Динамо М':['ДМ','#1d4f9f','#0d2f66'],'Динамо Мн':['ДМН','#0a56a8','#0d2a55'],'Драконы':['ДРК','#c8102e','#e0a800'],'Лада':['ЛАД','#d1202e','#6e0d18'],'Локомотив':['ЛОК','#d2232a','#1b2a49'],'Металлург Мг':['МЕТ','#0b3e8c','#d01f2f'],'Нефтехимик':['НХК','#c8102e','#0b3e8c'],'СКА':['СКА','#c8102e','#0a2a6b'],'Салават Юлаев':['СЮ','#0e8a43','#c8102e'],'Северсталь':['СЕВ','#143d7a','#c8102e'],'Сибирь':['СИБ','#0a4ea0','#d6001c'],'Спартак':['СПА','#d71920','#7d0d12'],'Торпедо':['ТОР','#0a4ea0','#111a2b'],'Трактор':['ТРК','#0b7bc4','#c8102e'],'ХК Сочи':['СОЧ','#0a64b4','#28b4e8'],'ЦСКА':['ЦСК','#d4002a','#1a3f94']};
-const LG={};
+const LG={},LGW={},WT={'Авангард':'Авангард (хоккейный клуб)','Автомобилист':'Автомобилист (хоккейный клуб)','Адмирал':'Адмирал (хоккейный клуб)','Ак Барс':'Ак Барс (хоккейный клуб)','Амур':'Амур (хоккейный клуб)','Барыс':'Барыс (хоккейный клуб)','Динамо М':'Динамо (хоккейный клуб, Москва)','Динамо Мн':'Динамо (хоккейный клуб, Минск)','Драконы':'Шанхайские Драконы','Лада':'Лада (хоккейный клуб)','Локомотив':'Локомотив (хоккейный клуб)','Металлург Мг':'Металлург (хоккейный клуб, Магнитогорск)','Нефтехимик':'Нефтехимик (хоккейный клуб)','СКА':'СКА (хоккейный клуб)','Салават Юлаев':'Салават Юлаев (хоккейный клуб)','Северсталь':'Северсталь (хоккейный клуб)','Сибирь':'Сибирь (хоккейный клуб)','Спартак':'Спартак (хоккейный клуб, Москва)','Торпедо':'Торпедо (хоккейный клуб, Нижний Новгород)','Трактор':'Трактор (хоккейный клуб)','ХК Сочи':'Сочи (хоккейный клуб)','ЦСКА':'ЦСКА (хоккейный клуб)'};
 const tc=t=>{const x=TM[t]||['','#44546a','#1c2738'];return `--c1:${x[1]};--c2:${x[2]}`};
 const abbr=t=>(TM[t]||[String(t).slice(0,3).toUpperCase()])[0];
 // эмблема: фирменный щит с монограммой; если в site/logos/ есть файл (см. logos/list.json) — показываем его
-const cr=(t,z=32)=>{const l=LG[t],x=TM[t]||[String(t).replace(/[^А-Яа-яA-Za-z]/g,'').slice(0,3).toUpperCase()];
-return `<span class="cr${l?' lg':''}" style="--z:${z}px;${tc(t)}" data-m="${esc(x[0])}">${l?`<img src="logos/${esc(l)}" alt="" loading="lazy" onerror="this.parentNode.classList.remove('lg');this.remove()">`:''}</span>`};
+const cr=(t,z=32)=>{const l=LG[t]?'logos/'+LG[t]:LGW[t],x=TM[t]||[String(t).replace(/[^А-Яа-яA-Za-z]/g,'').slice(0,3).toUpperCase()];
+return `<span class="cr${l?' lg':''}" style="--z:${z}px;${tc(t)}" data-m="${esc(x[0])}">${l?`<img src="${esc(l)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.classList.remove('lg');this.remove()">`:''}</span>`};
 const strip=()=>{try{const td=todayS(),fx=fixtures().filter(f=>!f.m&&f.d>=td).slice(0,12);if(!fx.length)return'';
-return `<h3 class="sh">Ближайшие матчи</h3><div class="strip">${fx.map(f=>`<a class="mc" href="#view=cal&st=all"><span class="m">${f.d===td?'Сегодня':f.d.slice(8)+'.'+f.d.slice(5,7)} · ${f.t?f.t+' МСК':'время уточняется'}</span><span class="tm">${cr(f.h,28)}<b>${esc(abbr(f.h))}</b></span><span class="tm">${cr(f.a,28)}<b>${esc(abbr(f.a))}</b></span></a>`).join('')}</div>`}catch(e){return''}};
+return `<h3 class="sh">Ближайшие матчи</h3><div class="strip">${fx.map(f=>`<a class="mc" href="#view=cal&st=all"><span class="m">${f.d===td?'<i class="lv"></i>Сегодня':f.d.slice(8)+'.'+f.d.slice(5,7)} · ${f.t?f.t+' МСК':'время уточняется'}</span><span class="tm">${cr(f.h,28)}<b>${esc(abbr(f.h))}</b></span><span class="tm">${cr(f.a,28)}<b>${esc(abbr(f.a))}</b></span></a>`).join('')}</div>`}catch(e){return''}};
+
+// эмблемы подтягиваются из русской Википедии прямо в браузере и запоминаются на устройстве; свои файлы из logos/ важнее
+const WAPI='https://ru.wikipedia.org/w/api.php',wget=q=>fetch(WAPI+'?'+new URLSearchParams({format:'json',origin:'*',redirects:1,...q})).then(r=>r.json());
+const okf=n=>/\.(svg|png)$/i.test(n)&&!/flag|map|jersey|форма|kit|arena|арена|stadium|стадион|дворец|player|commons-logo|wikidata|wiki|edit|question|symbol|icon|ambox|folder|nuvola|portal|stub|increase|decrease|steady/i.test(n);
+const pickf=a=>{const c=a.filter(okf);return c.find(n=>/logo|лого|эмбл|emblem|crest|герб/i.test(n))||c[0]};
+async function wikiLogos(){let c={};try{c=JSON.parse(localStorage.getItem('khl-wl2')||'{}')}catch(e){}Object.assign(LGW,c);
+const need=T.filter(t=>!LGW[t]&&!LG[t]&&WT[t]);if(!need.length)return;
+const by={};need.forEach(t=>by[WT[t]]=t);const files={},map={};let cont={};
+for(let i=0;i<6;i++){const d=await wget({action:'query',prop:'images',imlimit:'max',titles:Object.keys(by).join('|'),...cont}),q=d.query||{};
+(q.normalized||[]).concat(q.redirects||[]).forEach(x=>map[x.from]=x.to);
+Object.values(q.pages||{}).forEach(p=>{(files[p.title]=files[p.title]||[]).push(...(p.images||[]).map(x=>x.title))});
+if(!d.continue)break;cont=d.continue}
+const pick={};for(const[title,t]of Object.entries(by)){let k=title;for(let i=0;i<3&&map[k];i++)k=map[k];const f=pickf(files[k]||[]);if(f)pick[t]=f}
+const fl=[...new Set(Object.values(pick))];if(!fl.length)return;
+const d=await wget({action:'query',prop:'imageinfo',iiprop:'url',iiurlwidth:240,titles:fl.join('|')}),q=d.query||{},nm={},url={};
+(q.normalized||[]).forEach(x=>nm[x.from]=x.to);
+Object.values(q.pages||{}).forEach(p=>{const i=(p.imageinfo||[])[0];if(i)url[p.title]=i.thumburl||i.url});
+for(const[t,f]of Object.entries(pick)){const u=url[nm[f]||f];if(u)LGW[t]=u}
+try{localStorage.setItem('khl-wl2',JSON.stringify(LGW))}catch(e){}render()}
+const recent=()=>{const sn=season(),r=[...M].filter(m=>m.season===sn).sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0).slice(0,10);if(!r.length)return'';
+const tl=(x,rv)=>`<a href="#" ${go({view:'team',t:x,venue:'all',win:'s',tab:'',st:'',mo:'',tm:''},{})}>${rv?esc(x)+cr(x,26):cr(x,26)+esc(x)}</a>`;let last='';
+return `<h3 class="sh">Последние результаты</h3><div class="card">${r.map(m=>{const hw=m.home_goals>m.away_goals,aw=m.away_goals>m.home_goals,hd=m.date!==last?`<div class="dl">${m.date.split('-').reverse().slice(0,2).join('.')}</div>`:'';last=m.date;
+return hd+`<div class="fx"><span class="h${hw?' w':''}">${tl(m.home,1)}</span><span class="s">${res(m)}</span><span class="a${aw?' w':''}">${tl(m.away)}</span></div>`}).join('')}</div><p class="m"><a href="#view=cal&st=all" style="color:var(--link)">Весь календарь →</a></p>`};
+function countUp(){document.querySelectorAll('.kpi b').forEach(b=>{const t=b.textContent.trim();if(!/^\d+(\.\d+)?$/.test(t))return;const v=parseFloat(t),d=(t.split('.')[1]||'').length,t0=performance.now();
+const st=n=>{const k=Math.min(1,(n-t0)/800),e=1-Math.pow(1-k,3);b.textContent=(v*e).toFixed(d);if(k<1)requestAnimationFrame(st)};requestAnimationFrame(st)})}
 function vTeam(p){const t=p.t,s=season(),v=p.venue||'all',w=p.win||'s';
 if(!T.includes(t))return vList();
 let h=`<div class="th" style="${tc(t)}">${cr(t,68)}<div><h2>${esc(t)}</h2><div class="m">Сезон ${s}</div></div></div>`,body;
@@ -295,13 +340,15 @@ return `<h2>${name}</h2><div class="m">Сезон ${s} · ${rows.length} ком�
 `<div class="card"><table><tr><th>Команда</th><th>И</th><th>В</th><th>ВО</th><th>ПО</th><th>П</th><th>Ш</th><th>РШ</th><th>О</th></tr>`+
 rows.map((o,i)=>`<tr><td><span class="rk r${i<3?i+1:0}">${i+1}</span>${cr(o.t,24)}<a href="#" style="color:inherit" ${go({view:'team',t:o.t,venue:'all',win:'s'},{})}>${esc(o.t)}</a></td><td>${o.gp}</td><td>${o.w}</td><td>${o.wo}</td><td>${o.lo}</td><td>${o.l}</td><td>${o.gf}-${o.ga}</td><td>${sgn(o.gf-o.ga)}</td><td><b>${o.pts}</b></td></tr>`).join('')+'</table></div>'+
 '<p class="m">В — победы в основное время, ВО — победы в ОТ или по буллитам, ПО — поражения в ОТ или по буллитам, П — поражения в основное время. Ш — забитые и пропущенные (без победного буллита), РШ — разница. Места: очки, затем победы в основное время, все победы, разница шайб, забитые.</p>'}
-function vList(){return `${strip()}<div class="row"><button ${go({view:'table',conf:'all'},{})}>🏆 Турнирная таблица</button><button ${go({view:'cal',st:'all'},{})}>📅 Календарь лиги</button><button ${go({view:'league',cat:'pts',venue:'all',win:'s'},{})}>📊 Статистика лиги</button><button data-go="view=vs&a=&b=&venue=all&win=s">⚔️ Сравнить две команды</button></div>
+function vList(){return `${strip()}${recent()}<div class="row"><button ${go({view:'table',conf:'all'},{})}>🏆 Турнирная таблица</button><button ${go({view:'cal',st:'all'},{})}>📅 Календарь лиги</button><button ${go({view:'league',cat:'pts',venue:'all',win:'s'},{})}>📊 Статистика лиги</button><button data-go="view=vs&a=&b=&venue=all&win=s">⚔️ Сравнить две команды</button></div>
 <input id="q" type="search" placeholder="Найти команду…"><div class="grid" id="tg">${T.map(t=>`<button ${go({view:'team',t,venue:'all',win:'s'},{})}>${cr(t,38)}<span>${esc(t)}</span></button>`).join('')}</div>`}
 
 function render(){const p=P(),el=$('#app'),nv=['league','vs','table','cal'].includes(p.view)?p.view:'list';
 document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.v===nv));
 if(!M.length){el.innerHTML='<p>Данных пока нет — дождись первого запуска обновления (см. README).</p>';return}
+const k=location.hash,fresh=k!==window._k;window._k=k;el.classList.toggle('in',fresh);
 el.innerHTML=p.view==='team'?vTeam(p):p.view==='league'?vLeague(p):p.view==='table'?vTable(p):p.view==='vs'?vVs(p):p.view==='cal'?vCal(p):vList();
+if(fresh){el.querySelectorAll('.grid button,.strip .mc,.card tr,.fx,.pills span').forEach((n,i)=>n.style.setProperty('--i',Math.min(i,26)));countUp()}
 if(p.view==='cal'||(p.view==='team'&&p.tab==='games'))if((p.st||'all')==='all'){const n=document.getElementById('next');if(n)n.scrollIntoView({block:'center'})}}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(!b)return;e.preventDefault();
 const q=new URLSearchParams(b.dataset.go),cur=P(),n={};
@@ -313,6 +360,7 @@ document.addEventListener('change',e=>{const s=e.target.closest('[data-sel]');if
 document.addEventListener('input',e=>{if(e.target.id!=='q')return;const v=e.target.value.toLowerCase();document.querySelectorAll('#tg button').forEach(b=>b.hidden=!b.textContent.toLowerCase().includes(v))});
 addEventListener('hashchange',render);
 fetch('data/matches.json',{cache:'no-cache'}).then(r=>r.json()).then(d=>{M=d.matches;T=[...new Set(M.flatMap(m=>[m.home,m.away]))].sort();
+wikiLogos().catch(()=>{});
 fetch('logos/list.json').then(r=>r.ok?r.json():{}).then(x=>{Object.assign(LG,x);render()}).catch(()=>{});
 fetch('data/schedule.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(x=>{if(x){S=x.games||[];render()}}).catch(()=>{});
 if(d.updated)$('#upd').textContent='Обновлено: '+new Date(d.updated).toLocaleString('ru-RU',{dateStyle:'short',timeStyle:'short'});render();return fetch('data/players.json').then(r=>r.json()).then(d=>{PG=d.games||[];render()}).catch(()=>{})})
