@@ -31,7 +31,7 @@ def get(url, binary=False):
     return data if binary else json.loads(data.decode("utf-8"))
 
 
-BAD = re.compile(r"flag|map|jersey|форма|kit|arena|арена|stadium|стадион|дворец|player|commons-logo|wikidata|wiki|edit|question|symbol|icon|ambox|folder|nuvola|portal|stub|increase|decrease|steady", re.I)
+BAD = re.compile(r"flag|map|jersey|форма|kit|arena|арена|stadium|стадион|дворец|player|commons-logo|wikidata|wiki|edit|question|symbol|icon|ambox|folder|nuvola|portal|stub|increase|decrease|steady|emblem-|important|attention|warning|notice|alert|exclam|disambig|redirect|wikiquote|wikisource|oojs|ooui|padlock|lock|speaker|sound|audio|crystal|gnome|tango|cscr", re.I)
 GOOD = re.compile(r"logo|лого|эмбл|emblem|crest|герб", re.I)
 
 
