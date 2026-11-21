@@ -1,8 +1,11 @@
 {
- "Динамо Мн": "dinamo-minsk.png",
- "Авангард": "team2.png",
- "Автомобилист": "team3.png",
- "Адмирал": "team4.png",
- "Ак Барс": "team5.png",
- "Амур": "team6.png"
+ "Динамо Мн": "dinamo-mn.png",
+ "ЦСКА": "cska.png",
+ "СКА": "ska.png",
+ "Локомотив": "lokomotiv.png",
+ "Драконы": "drakony.png",
+ "Ак Барс": "ak-bars.png",
+ "Лада": "lada.png",
+ "ХК Сочи": "sochi.png",
+ "Трактор": "traktor.png"
 }
