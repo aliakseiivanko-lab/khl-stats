@@ -54,6 +54,9 @@ def logo_url(title):
     return None
 
 
+SKIP = {"Локомотив", "Динамо Мн", "ЦСКА", "Ак Барс", "Драконы", "Трактор", "ХК Сочи"}
+
+
 def main():
     LOGOS.mkdir(parents=True, exist_ok=True)
     lp = LOGOS / "list.json"
@@ -63,6 +66,8 @@ def main():
     added = 0
     for t in teams:
         if t in lst and (LOGOS / lst[t]).exists():
+            continue
+        if t in SKIP:                                   # у этих команд Википедия даёт старые эмблемы — кладите файлы вручную
             continue
         try:
             src = logo_url(TITLES[t]) if t in TITLES else None
