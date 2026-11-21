@@ -145,6 +145,7 @@ h1 a{white-space:nowrap}header .m{max-width:44%;line-height:1.3}td a{text-decora
 .qh{font:700 13px var(--fd);padding:14px 0 4px}.qr{display:flex;align-items:center;gap:8px;padding:10px 0;color:inherit;text-decoration:none}.qr+.qr{border-top:1px solid var(--b)}
 .qr .dt{min-width:40px;font-size:12px}.qo{flex:1;min-width:0;display:flex;align-items:center;overflow-wrap:anywhere}.qo .cr{margin-right:7px}.qr .ha{min-width:52px;font-size:10.5px;padding:3px 6px}
 .rs{display:inline-flex;align-items:center;gap:6px;font:700 13px var(--fd);white-space:nowrap}.qk .card .m{padding:6px 0 10px}
+.ev{padding:6px 16px}.er{display:flex;gap:10px;align-items:baseline;padding:9px 0}.er+.er{border-top:1px solid var(--b)}.er .et{min-width:46px;color:var(--m);font-variant-numeric:tabular-nums;font-size:13px}.er .ei{width:20px;text-align:center}.er .ex{flex:1;min-width:0}
 </style></head><body><main>
 <header><h1><a href="#">Статистика КХЛ</a></h1><div class="m" id="upd"></div></header>
 <nav id="nav"><a data-v="list" href="#">Команды</a><a data-v="table" href="#view=table&conf=all">Таблица</a><a data-v="cal" href="#view=cal&st=all">Календарь</a><a data-v="league" href="#view=league&cat=pts&venue=all&win=s">Статистика лиги</a><a data-v="vs" href="#view=vs&a=&b=&venue=all&win=s">Сравнение</a></nav>
@@ -273,12 +274,14 @@ if(!g)return `<div class="hero"><h2>Матч</h2></div><p class="m">${LV.ok?'Э�
 const pr=(l,v,fmt)=>v?{l,a:v[0],b:v[1],fa:fmt?fmt(0):v[0],fb:fmt?fmt(1):v[1]}:null,pp=g.pp_goals&&g.pp_opps;
 const rows=[pr('Броски в створ',g.sog),pr('Вбрасывания',g.fo),pp?{l:'Большинство (голы/попытки)',a:g.pp_opps[0],b:g.pp_opps[1],fa:g.pp_goals[0]+'/'+g.pp_opps[0],fb:g.pp_goals[1]+'/'+g.pp_opps[1]}:null,
 pr('Удаления',g.pen),pr('Штраф, мин',g.pim),pr('Блок-броски',g.blk),pr('Силовые приёмы',g.hit),pr('Голы в меньшинстве',g.shg)].filter(Boolean);
+(g.stats||[]).forEach(x=>{if(!rows.some(r=>r.l===x[0]))rows.push({l:x[0],a:parseFloat(x[1])||0,b:parseFloat(x[2])||0,fa:x[1],fb:x[2]})});
+const evs=(g.events||[]).slice().reverse(),evh=evs.length?`<h3 class="sh">Ход матча</h3><div class="card ev">${evs.map(e=>e.k==='goal'?`<div class="er"><span class="et">${e.t}</span><span class="ei">🥅</span><span class="ex"><b>Гол ${e.s[0]}:${e.s[1]}</b> ${esc(e.p)}${e.a?`<span class="m"> (${esc(e.a)})</span>`:''}</span></div>`:`<div class="er"><span class="et">${e.t}</span><span class="ei">⏱</span><span class="ex">Удаление ${esc(e.p)} · ${e.m} мин</span></div>`).join('')}</div>`:'';
 const bar=r=>{const a=r.a||0,b=r.b||0,t=a+b||2;return `<div class="cl">${r.l}</div><div class="cmp"><b>${r.fa}</b><div class="bar"><i class="l" style="flex:${a||(t===2?1:.02)}"></i><i class="r" style="flex:${b||(t===2?1:.02)}"></i></div><b>${r.fb}</b></div>`};
 const stale=LV.updated&&Date.now()-new Date(LV.updated)>180000;
-return `<div class="lvh"><div class="lt">${cr(g.home,60)}<b>${esc(g.home)}</b></div><div class="ls"><div class="sc">${g.score[0]}:${g.score[1]}</div><div class="st">${g.live?'<i class="lv"></i>Идёт матч':'Матч завершён'}${g.status?' · '+esc(g.status):''}</div></div><div class="lt">${cr(g.away,60)}<b>${esc(g.away)}</b></div></div>
+return `<div class="lvh"><div class="lt">${cr(g.home,60)}<b>${esc(g.home)}</b></div><div class="ls"><div class="sc">${g.score[0]}:${g.score[1]}</div><div class="st">${g.live?'<i class="lv"></i>Идёт матч':'Матч завершён'}${g.status?' · '+esc(g.status):''}${g.periods?'<br>по периодам: '+g.periods.map(esc).join(' · '):''}</div></div><div class="lt">${cr(g.away,60)}<b>${esc(g.away)}</b></div></div>
 <div class="lvf m">Данные на ${clk(LV.updated)}${stale?' · <b style="color:var(--a)">давно не обновлялись</b>':''}${g.live?` · обновление через <b id="lvcd">30</b> с`:''} <button data-lvr>Обновить</button></div>
 <div class="card lvs">${rows.length?rows.map(bar).join(''):'<p class="m">Статистика появится, как только в протоколе будут данные.</p>'}</div>
-<p class="m">${g.arena?esc(g.arena)+(g.att?' · '+g.att+' зрителей':'')+' · ':''}Источник: протокол khl.ru, обновляется автоматически.</p>`+back}
+${evh}<p class="m">${g.arena?esc(g.arena)+(g.att?' · '+g.att+' зрителей':'')+' · ':''}Источник: sportmail.ru${g.sog?' и протокол khl.ru':''}, обновляется автоматически.</p>`+back}
 document.addEventListener('click',e=>{if(e.target.closest('[data-lvr]'))loadLive()});
 setInterval(()=>{if(document.hidden)return;const act=LV.games.some(g=>g.live)||P().view==='live',age=Date.now()-lvAt;
 const cd=document.getElementById('lvcd');if(cd)cd.textContent=Math.max(0,30-Math.floor(age/1000));
