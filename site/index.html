@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ru"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Статистика КХЛ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap">
@@ -59,7 +59,7 @@ tr.s td{color:var(--t);font:700 13px var(--fd);padding:20px 0 8px;border-top:0}t
 .fx .w{font-weight:700}.fx a{color:inherit;text-decoration:none}
 .nx{background:var(--a2);border-radius:10px;padding-left:8px;padding-right:8px}
 button[disabled]{opacity:.35;cursor:default}
-@media(max-width:700px),(hover:none) and (pointer:coarse) and (max-width:1100px){
+@media(max-width:700px){
 main{padding-bottom:96px}
 nav{position:fixed;top:auto;bottom:max(8px,env(safe-area-inset-bottom));left:8px;right:8px;margin:0;padding:4px;border-radius:20px;box-shadow:0 10px 32px #0c172655;overflow:visible}
 nav a{padding:8px 2px;font-size:11px;line-height:1.15;white-space:normal;display:flex;flex-direction:column;align-items:center;gap:2px}
@@ -116,21 +116,13 @@ h1{font-size:clamp(20px,3vw,28px)}
 .ha{display:inline-flex;align-items:center;justify-content:center;min-width:60px;padding:3px 9px;border-radius:999px;font:600 11px "Onest",sans-serif;background:var(--ice);color:var(--link)}
 .ha.aw{background:none;box-shadow:inset 0 0 0 1px var(--b);color:var(--m)}
 .h2c{display:block}.hc2{min-width:0}
-@media(min-width:701px) and (hover:hover){nav{max-width:780px}}
+@media(min-width:701px){nav{max-width:780px}}
 @media(min-width:960px){
 .h2c{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:32px;align-items:start}
 .hc1 .sh:first-child{margin-top:8px}.hc2 .row{margin-top:20px}
 .grid{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
 .card:has(.fx,.g,.up){max-width:860px}
 .kpi{max-width:860px}}
-
-/* --- шапка без привязки к vw и защита от горизонтального «раздувания» --- */
-html,body{overflow-x:clip}body{position:relative}
-body::before{content:"";position:absolute;left:0;right:0;top:0;height:122px;z-index:-1;background:radial-gradient(circle at 88% 120%,transparent 0 62px,#ffffff1f 63px 65px,transparent 66px 118px,#ffffff12 119px 121px,transparent 122px),linear-gradient(135deg,#0c1726,#16304f)}
-header{margin-inline:0;padding-inline:0}header::before{display:none}header::after{left:0;right:0}
-h1 a{white-space:nowrap}header .m{max-width:44%;line-height:1.3}td a{text-decoration:none}td a:hover{text-decoration:underline}
-.fx .h,.fx .a{overflow-wrap:break-word}
-@media(max-width:480px){.fx{gap:6px;font-size:14px}.fx .s{min-width:56px;padding:5px 2px;font-size:12.5px}.fx .cr{--z:22px!important;margin-right:6px}.fx .h .cr{margin:0 0 0 6px}.card{padding:4px 12px}}
 </style></head><body><main>
 <header><h1><a href="#">Статистика КХЛ</a></h1><div class="m" id="upd"></div></header>
 <nav id="nav"><a data-v="list" href="#">Команды</a><a data-v="table" href="#view=table&conf=all">Таблица</a><a data-v="cal" href="#view=cal&st=all">Календарь</a><a data-v="league" href="#view=league&cat=pts&venue=all&win=s">Статистика лиги</a><a data-v="vs" href="#view=vs&a=&b=&venue=all&win=s">Сравнение</a></nav>
@@ -203,11 +195,11 @@ const chips=(list,cur,key,p)=>`<div class="seg">${list.map(([k,l])=>`<button cla
 const nWin=w=>w==='s'||!w?null:+w,per=w=>nWin(w)?`последние ${w} матчей`:'весь сезон';
 
 const TM={'Авангард':['АВГ','#d32030','#1b3a7c'],'Автомобилист':['АВТ','#0b3f8c','#e0a800'],'Адмирал':['АДМ','#0b3c7a','#2f8fd8'],'Ак Барс':['АКБ','#0a7d3b','#c8102e'],'Амур':['АМУ','#0b4a96','#e8780a'],'Барыс':['БАР','#0aa0dd','#0a2a5c'],'Динамо М':['ДМ','#1d4f9f','#0d2f66'],'Динамо Мн':['ДМН','#0a56a8','#0d2a55'],'Драконы':['ДРК','#c8102e','#e0a800'],'Лада':['ЛАД','#d1202e','#6e0d18'],'Локомотив':['ЛОК','#d2232a','#1b2a49'],'Металлург Мг':['МЕТ','#0b3e8c','#d01f2f'],'Нефтехимик':['НХК','#c8102e','#0b3e8c'],'СКА':['СКА','#c8102e','#0a2a6b'],'Салават Юлаев':['СЮ','#0e8a43','#c8102e'],'Северсталь':['СЕВ','#143d7a','#c8102e'],'Сибирь':['СИБ','#0a4ea0','#d6001c'],'Спартак':['СПА','#d71920','#7d0d12'],'Торпедо':['ТОР','#0a4ea0','#111a2b'],'Трактор':['ТРК','#0b7bc4','#c8102e'],'ХК Сочи':['СОЧ','#0a64b4','#28b4e8'],'ЦСКА':['ЦСК','#d4002a','#1a3f94']};
-const WSKIP=new Set(['Локомотив','Динамо Мн','ЦСКА','Ак Барс','Драконы','Трактор','ХК Сочи']),LG={},LGW={},WT={'Авангард':'Авангард (хоккейный клуб)','Автомобилист':'Автомобилист (хоккейный клуб)','Адмирал':'Адмирал (хоккейный клуб)','Ак Барс':'Ак Барс (хоккейный клуб)','Амур':'Амур (хоккейный клуб)','Барыс':'Барыс (хоккейный клуб)','Динамо М':'Динамо (хоккейный клуб, Москва)','Динамо Мн':'Динамо (хоккейный клуб, Минск)','Драконы':'Шанхайские Драконы','Лада':'Лада (хоккейный клуб)','Локомотив':'Локомотив (хоккейный клуб)','Металлург Мг':'Металлург (хоккейный клуб, Магнитогорск)','Нефтехимик':'Нефтехимик (хоккейный клуб)','СКА':'СКА (хоккейный клуб)','Салават Юлаев':'Салават Юлаев (хоккейный клуб)','Северсталь':'Северсталь (хоккейный клуб)','Сибирь':'Сибирь (хоккейный клуб)','Спартак':'Спартак (хоккейный клуб, Москва)','Торпедо':'Торпедо (хоккейный клуб, Нижний Новгород)','Трактор':'Трактор (хоккейный клуб)','ХК Сочи':'Сочи (хоккейный клуб)','ЦСКА':'ЦСКА (хоккейный клуб)'};
+const LG={},LGW={},WT={'Авангард':'Авангард (хоккейный клуб)','Автомобилист':'Автомобилист (хоккейный клуб)','Адмирал':'Адмирал (хоккейный клуб)','Ак Барс':'Ак Барс (хоккейный клуб)','Амур':'Амур (хоккейный клуб)','Барыс':'Барыс (хоккейный клуб)','Динамо М':'Динамо (хоккейный клуб, Москва)','Динамо Мн':'Динамо (хоккейный клуб, Минск)','Драконы':'Шанхайские Драконы','Лада':'Лада (хоккейный клуб)','Локомотив':'Локомотив (хоккейный клуб)','Металлург Мг':'Металлург (хоккейный клуб, Магнитогорск)','Нефтехимик':'Нефтехимик (хоккейный клуб)','СКА':'СКА (хоккейный клуб)','Салават Юлаев':'Салават Юлаев (хоккейный клуб)','Северсталь':'Северсталь (хоккейный клуб)','Сибирь':'Сибирь (хоккейный клуб)','Спартак':'Спартак (хоккейный клуб, Москва)','Торпедо':'Торпедо (хоккейный клуб, Нижний Новгород)','Трактор':'Трактор (хоккейный клуб)','ХК Сочи':'Сочи (хоккейный клуб)','ЦСКА':'ЦСКА (хоккейный клуб)'};
 const tc=t=>{const x=TM[t]||['','#44546a','#1c2738'];return `--c1:${x[1]};--c2:${x[2]}`};
 const abbr=t=>(TM[t]||[String(t).slice(0,3).toUpperCase()])[0];
 // эмблема: фирменный щит с монограммой; если в site/logos/ есть файл (см. logos/list.json) — показываем его
-const cr=(t,z=32)=>{const l=LG[t]?'logos/'+LG[t]:WSKIP.has(t)?null:LGW[t],x=TM[t]||[String(t).replace(/[^А-Яа-яA-Za-z]/g,'').slice(0,3).toUpperCase()];
+const cr=(t,z=32)=>{const l=LG[t]?'logos/'+LG[t]:LGW[t],x=TM[t]||[String(t).replace(/[^А-Яа-яA-Za-z]/g,'').slice(0,3).toUpperCase()];
 return `<span class="cr${l?' lg':''}" style="--z:${z}px;${tc(t)}" data-m="${esc(x[0])}">${l?`<img src="${esc(l)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.classList.remove('lg');this.remove()">`:''}</span>`};
 const strip=()=>{try{const td=todayS(),fx=fixtures().filter(f=>!f.m&&f.d>=td).slice(0,12);if(!fx.length)return'';
 return `<h3 class="sh">Ближайшие матчи</h3><div class="strip">${fx.map(f=>`<a class="mc" href="#view=cal&st=all"><span class="m">${f.d===td?'<i class="lv"></i>Сегодня':f.d.slice(8)+'.'+f.d.slice(5,7)} · ${f.t?f.t+' МСК':'время уточняется'}</span><span class="tm">${cr(f.h,28)}<b>${esc(abbr(f.h))}</b></span><span class="tm">${cr(f.a,28)}<b>${esc(abbr(f.a))}</b></span></a>`).join('')}</div>`}catch(e){return''}};
@@ -217,7 +209,7 @@ const WAPI='https://ru.wikipedia.org/w/api.php',wget=q=>fetch(WAPI+'?'+new URLSe
 const okf=n=>/\.(svg|png)$/i.test(n)&&!/flag|map|jersey|форма|kit|arena|арена|stadium|стадион|дворец|player|commons-logo|wikidata|wiki|edit|question|symbol|icon|ambox|folder|nuvola|portal|stub|increase|decrease|steady|emblem-|important|attention|warning|notice|alert|exclam|disambig|redirect|wikiquote|wikisource|oojs|ooui|padlock|lock|speaker|sound|audio|crystal|gnome|tango|cscr/i.test(n);
 const pickf=a=>{const c=a.filter(okf);return c.find(n=>/logo|лого|эмбл|emblem|crest|герб/i.test(n))||c[0]};
 async function wikiLogos(){let c={};try{c=JSON.parse(localStorage.getItem('khl-wl3')||'{}')}catch(e){}Object.assign(LGW,c);
-const need=T.filter(t=>!LGW[t]&&!LG[t]&&WT[t]&&!WSKIP.has(t));if(!need.length)return;
+const need=T.filter(t=>!LGW[t]&&!LG[t]&&WT[t]);if(!need.length)return;
 const by={};need.forEach(t=>by[WT[t]]=t);const files={},map={};let cont={};
 for(let i=0;i<6;i++){const d=await wget({action:'query',prop:'images',imlimit:'max',titles:Object.keys(by).join('|'),...cont}),q=d.query||{};
 (q.normalized||[]).concat(q.redirects||[]).forEach(x=>map[x.from]=x.to);
@@ -375,8 +367,7 @@ if(!M.length){el.innerHTML='<p>Данных пока нет — дождись �
 const k=location.hash,fresh=k!==window._k;window._k=k;el.classList.toggle('in',fresh);
 el.innerHTML=p.view==='team'?vTeam(p):p.view==='league'?vLeague(p):p.view==='table'?vTable(p):p.view==='vs'?vVs(p):p.view==='cal'?vCal(p):vList();
 if(fresh){el.querySelectorAll('.grid button,.strip .mc,.card tr,.fx,.pills span').forEach((n,i)=>n.style.setProperty('--i',Math.min(i,26)));countUp()}
-const nk=[p.view,p.t,p.tab].join('|');if(nk!==window._nk){window._nk=nk;window._sc=null;scrollTo({top:0,behavior:'instant'})}
-if(p.view==='cal'||(p.view==='team'&&p.tab==='games'))if((p.st||'all')==='all'){const n=document.getElementById('next');if(n&&window._sc!==k){window._sc=k;n.scrollIntoView({block:'center',behavior:'instant'})}}}
+if(p.view==='cal'||(p.view==='team'&&p.tab==='games'))if((p.st||'all')==='all'){const n=document.getElementById('next');if(n)n.scrollIntoView({block:'center'})}}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(!b)return;e.preventDefault();
 const q=new URLSearchParams(b.dataset.go),cur=P(),n={};
 // view сохраняется из текущей страницы, если кнопка его не задаёт
