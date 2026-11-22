@@ -1,6 +1,6 @@
 """Источник живых данных №2: sportmail.ru (страницы матчей КХЛ). Отдаёт счёт, периоды, ход матча
 (голы и удаления) и командную статистику. Разбор идёт по тексту страницы, поэтому устойчив к вёрстке."""
-import json, logging, re, urllib.request
+import datetime as dt, json, logging, re, time, urllib.request
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -15,7 +15,10 @@ ALIAS = {"торпедо нн": "Торпедо", "шанхай дрэгонс":
 
 
 def get(url: str) -> str:
-    with urllib.request.urlopen(urllib.request.Request(url if url.startswith("http") else BASE + url, headers=HDR), timeout=25) as r:
+    u = url if url.startswith("http") else BASE + url
+    u += ("&" if "?" in u else "?") + f"_={int(time.time())}"       # обход кэша CDN: страница матча должна быть свежей
+    hdr = {**HDR, "Cache-Control": "no-cache", "Pragma": "no-cache"}
+    with urllib.request.urlopen(urllib.request.Request(u, headers=hdr), timeout=25) as r:
         return r.read().decode("utf-8", "replace")
 
 
@@ -107,6 +110,7 @@ def parse_match(html: str, mid: str, known: list[str], today: str) -> dict | Non
     finished = "Матч завершен" in text or "Матч завершён" in text
     seg = text.split("мин.", 1)[1] if "мин." in text else text
     seg = seg.split("Стадион", 1)[0]
+    log.info("sportmail %s: шапка: %s", mid, seg[:140])
     sc = re.search(r"(?<![\d:])(\d+) : [^\d:]+? (\d+)(?![\d:])", seg)
     score = [int(sc.group(1)), int(sc.group(2))] if sc else [0, 0]
     per = None
@@ -116,11 +120,24 @@ def parse_match(html: str, mid: str, known: list[str], today: str) -> dict | Non
             per = [x.strip() for x in pm.group(1).strip(", ").split(",") if x.strip()]
     st = re.search(r"назначена на (\d{1,2}:\d{2})", text)
     log.info("sportmail %s: %s — %s, начался=%s, завершён=%s", mid, home, away, started, finished)
+    stale = False
+    if not started and st:                             # страница не обновилась, хотя по времени игра уже идёт
+        try:
+            t0 = dt.datetime.fromisoformat(f"{date}T{st.group(1).zfill(5)}").replace(tzinfo=dt.timezone(dt.timedelta(hours=3)))
+            now = dt.datetime.now(dt.timezone(dt.timedelta(hours=3)))
+            if t0 + dt.timedelta(minutes=3) <= now <= t0 + dt.timedelta(hours=3, minutes=30):
+                started, stale = True, True
+                log.warning("sportmail %s: по времени игра идёт, а страница говорит «не начался» — источник отстаёт", mid)
+        except Exception:
+            pass
     rec = {"id": int(mid), "source": "sportmail", "home": home, "away": away, "date": date, "score": score,
            "live": started and not finished, "started": started, "finished": finished,
            "status": "" if not started else ("Матч завершён" if finished else "")}
     if st:
         rec["time"] = st.group(1)
+    if stale and not sc:
+        rec["nodata"] = True
+        rec["status"] = "Идёт матч"
     if per:
         rec["periods"] = per
     ar = re.search(r"Стадион: (.+?) (?:вместимость|Главный судья|Информация о матче|Превью|Трансляция|Протокол)", text)
