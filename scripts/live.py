@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
 import protocols as P
 import live_sm as SM
+import live_khl as KT
 
 log = logging.getLogger("live")
 ROOT = Path(__file__).resolve().parent.parent
@@ -97,6 +98,14 @@ def publish(games: list):
 STAT_KEYS = ("sog", "fo", "fo_all", "pen", "pim", "pp_goals", "pp_opps", "shg", "blk", "hit", "extra")
 
 
+def sched_today(today: str) -> list[tuple[str, str]]:
+    try:
+        g = json.loads((ROOT / "site/data/schedule.json").read_text(encoding="utf-8"))["games"]
+        return [(x["h"], x["a"]) for x in g if x.get("d") == today]
+    except Exception:
+        return []
+
+
 def sm_scan(known, today):
     """Ищет на sportmail.ru матчи КХЛ за сегодня: список ссылок -> страницы матчей."""
     links = []
@@ -120,6 +129,51 @@ def sm_scan(known, today):
     return out
 
 
+def khl_probe(gid, today, sched):
+    try:
+        return gid, KT.parse(KT.fetch(gid), gid, today, sched)
+    except KT.NotFound:
+        return gid, None
+    except Exception as e:
+        log.warning("text.khl.ru %s: %r", gid, e)
+        return gid, None
+
+
+def khl_many(ids, today, sched, workers=6):
+    out = {}
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        for gid, rec in ex.map(lambda g: khl_probe(g, today, sched), ids):
+            if rec:
+                out[gid] = rec
+    return out
+
+
+def merge(khl_recs: list[dict], sm_recs: list[dict]) -> list[dict]:
+    """Официальная трансляция КХЛ — основа; sportmail дополняет (русские имена и минуты голов, штрафы, статистика)."""
+    out, used = [], set()
+    for k in khl_recs:
+        g = {kk: v for kk, v in k.items() if not kk.startswith("_")}
+        m = next((x for x in sm_recs if (x["home"], x["away"]) == (k["home"], k["away"])), None)
+        if m and not m.get("nodata"):
+            used.add(m["id"])
+            kg = [e for e in k.get("events", []) if e["k"] == "goal"]
+            sg = [e for e in m.get("events", []) if e["k"] == "goal"]
+            if sg and len(sg) == len(kg):               # то же число голов — берём события sportmail (по-русски, с минутами)
+                g["events"] = [{kk: v for kk, v in e.items()} for e in m["events"]]
+            elif m.get("events"):
+                g["events_sm"] = m["events"]
+            for f in ("periods", "stats"):
+                if m.get(f):
+                    g[f] = m[f]
+            if not g.get("arena") and m.get("arena"):
+                g["arena"] = m["arena"]
+        out.append(g)
+    for m in sm_recs:
+        if m["id"] not in used and not any((m["home"], m["away"]) == (g["home"], g["away"]) for g in out):
+            out.append({kk: v for kk, v in m.items() if not kk.startswith("_")})
+    return out
+
+
 def main():
     if not schedule_busy():
         log.info("по расписанию сейчас игр нет — выходим")
@@ -129,58 +183,53 @@ def main():
                         for t in (m["home"], m["away"])})
     except Exception:
         known = []
-    use_khl = os.getenv("LIVE_KHL", "1") != "0"
     finished_ids = {int(k) for k, r in P.load_games().items() if not r.get("bad")}
     last = max(finished_ids, default=P.FIRST_ID)
     cand = [g for g in range(last - SPAN, last + SPAN) if g not in finished_ids]
     deadline = time.time() + RUN_MIN * 60
-    games: dict[str, dict] = {}
-    khl: dict[int, dict] = {}
+    sm: dict[str, dict] = {}
+    kh: dict[int, dict] = {}
     was_live, seen = set(), {}
     next_scan, idle, last_sig = 0.0, 0, None
     while time.time() < deadline:
         t0 = time.time()
         today = dt.datetime.now(MSK).date().isoformat()
+        sched = sched_today(today)
         try:
             if t0 >= next_scan:                         # раз в несколько минут ищем новые матчи
-                found = sm_scan(known, today)
-                for mid, rec in found.items():
-                    if rec["live"]:
-                        was_live.add(mid)
-                    if rec["live"] or (rec["finished"] and mid in was_live):
-                        games[mid] = rec
-                if use_khl:
-                    khl = probe_many(cand)
+                for mid, rec in sm_scan(known, today).items():
+                    if rec["live"] or (rec["finished"] and (rec["home"], rec["away"]) in was_live):
+                        sm[mid] = rec
+                found = khl_many(cand, today, sched)
+                log.info("text.khl.ru: найдено игр за сегодня: %d (идут: %d)", len(found), sum(1 for r in found.values() if r["live"]))
+                for gid, rec in found.items():
+                    if rec["live"] or (rec["finished"] and (rec["home"], rec["away"]) in was_live):
+                        kh[gid] = rec
                 next_scan = t0 + RESCAN
             else:
-                for mid, rec in list(games.items()):
-                    if not rec["live"]:
-                        continue
-                    new = SM.parse_match(SM.get(rec["_url"]), mid, known, today)
-                    if new:
-                        new["_url"] = rec["_url"]
-                        games[mid] = new
-                if use_khl and khl:
-                    khl.update(probe_many(list(khl)))
+                for gid in [g for g, r in kh.items() if r["live"]]:
+                    _, rec = khl_probe(gid, today, sched)
+                    if rec:
+                        kh[gid] = rec
+                for mid, rec in list(sm.items()):
+                    if rec["live"]:
+                        new = SM.parse_match(SM.get(rec["_url"]), mid, known, today)
+                        if new:
+                            new["_url"] = rec["_url"]
+                            sm[mid] = new
         except Exception as e:
             log.warning("цикл не удался: %r", e)
-        for mid, rec in list(games.items()):            # законченные матчи показываем ещё 45 минут
-            if rec["live"]:
-                seen.pop(mid, None)
-            else:
-                seen.setdefault(mid, t0)
-                if t0 - seen[mid] > 2700:
-                    games.pop(mid)
-        by = {(r["home"], r["away"]): r for r in khl.values()}
-        out = []
-        for rec in sorted(games.values(), key=lambda r: (r.get("time") or "", r["id"])):
-            g = {k: v for k, v in rec.items() if not k.startswith("_")}
-            k = by.get((g["home"], g["away"]))
-            if k:                                       # статистика из протокола khl.ru, если он нашёлся
-                for f in STAT_KEYS:
-                    if k.get(f) is not None:
-                        g[f] = k[f]
-            out.append(g)
+        for src in (kh, sm):
+            for key, rec in list(src.items()):
+                pair = (rec["home"], rec["away"])
+                if rec["live"]:
+                    was_live.add(pair)
+                    seen.pop((id(src), key), None)
+                else:                                   # законченные матчи показываем ещё 45 минут
+                    seen.setdefault((id(src), key), t0)
+                    if t0 - seen[(id(src), key)] > 2700:
+                        src.pop(key)
+        out = merge(sorted(kh.values(), key=lambda r: (r.get("time") or "", r["id"])), list(sm.values()))
         busy = any(g.get("live") for g in out)
         sig = json.dumps(out, sort_keys=True, ensure_ascii=False)
         if busy or sig != last_sig:
