@@ -149,6 +149,7 @@ h1 a{white-space:nowrap}header .m{max-width:44%;line-height:1.3}td a{text-decora
 .ph{font:700 12px var(--fd);color:var(--m);padding:14px 0 2px}.sc2{font-weight:600}.er .ex>div{margin-top:2px}
 .pk .pr{display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--b);cursor:pointer}.pk .pr .o{flex:1;display:inline-flex;align-items:center;min-width:0}.pk input{width:20px;height:20px;accent-color:var(--a);flex:none}.pk .row{margin:8px 0}
 .mlink{display:inline-block;margin:6px 0 10px;color:var(--link);text-decoration:none;font-weight:600}.fx a.s{text-decoration:none;color:inherit;justify-content:center}
+.scl{display:inline-flex;align-items:center;gap:4px;font-weight:700;text-decoration:none;color:inherit;background:var(--ice);border-radius:10px;padding:7px 10px;white-space:nowrap}.scl span{color:var(--a);font-size:16px;line-height:1}.scl:active{transform:scale(.95)}
 </style></head><body><main>
 <header><h1><a href="#">Статистика КХЛ</a></h1><div class="m" id="upd"></div></header>
 <nav id="nav"><a data-v="list" href="#">Команды</a><a data-v="table" href="#view=table&conf=all">Таблица</a><a data-v="cal" href="#view=cal&st=all">Календарь</a><a data-v="league" href="#view=league&cat=pts&venue=all&win=s">Статистика лиги</a><a data-v="vs" href="#view=vs&a=&b=&venue=all&win=s">Сравнение</a></nav>
@@ -397,7 +398,7 @@ const opp=f=>f.h===t?f.a:f.h,vs=f=>f.h===t?'<span class="ha">Дом</span>':'<sp
 h+=`<div class="pills"><span>Сыграно ${done.length}</span><span>Впереди ${up.length}</span>${nx?`<span>Следующий матч: ${dm(nx.d)} ${vs(nx)} ${esc(opp(nx))}${nx.t?' · '+nx.t+' МСК':''}</span>`:''}</div>`;
 if(!list.length)return h+'<p>Матчей по этому фильтру нет.</p>'+noSched();
 h+=`<div class="card">`+list.map(f=>{const dd=`<span class="dt">${dm(f.d)} ${WD(f.d)}</span>`;
-if(f.m){const me=pov(f.m,t);return `<details class="g">`+`<summary>${dot(me)}${dd}<span class="o">${vs(f)} ${cr(opp(f),22)}${esc(opp(f))}</span><b>${res(f.m)}</b></summary>${gDetail(f.m,t)}<a class="mlink" href="${mHref(f.m)}">Голы и передачи →</a></details>`}
+if(f.m){const me=pov(f.m,t);return `<details class="g">`+`<summary>${dot(me)}${dd}<span class="o">${vs(f)} ${cr(opp(f),22)}${esc(opp(f))}</span><a class="scl" href="${mHref(f.m)}">${res(f.m)}<span>›</span></a></summary>${gDetail(f.m,t)}<a class="mlink" href="${mHref(f.m)}">Голы и передачи →</a></details>`}
 const late=f.d<td;
 return `<div class="g"><div class="up${f===nx?' nx':''}"${f===nx?' id="next"':''}><span class="d" style="background:var(--b)"></span>${dd}<span class="o">${vs(f)} ${cr(opp(f),22)}${esc(opp(f))}</span>${liveTag(f)||`<span class="m">${late?'результат уточняется':(f.t?f.t+' МСК':'время уточняется')}</span>`}</div></div>`}).join('')+'</div>'
 +'<p class="m">Время начала — московское (МСК). Нажми на сыгранный матч, чтобы раскрыть статистику.</p>'+noSched();return h}
