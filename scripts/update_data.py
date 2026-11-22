@@ -41,6 +41,13 @@ Path("site/data").mkdir(parents=True, exist_ok=True)
 Path("site/data/matches.json").write_text(json.dumps({"updated": now(), "matches": [asdict(m) for m in ms]},
                                                     ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
+# голы с ассистентами и удаления по каждому матчу — для страницы матча (грузится по требованию)
+gj = {f"{r['date']}|{r['home']}|{r['away']}": {"g": r.get("gl", []), "p": r.get("pl", []), "ar": r.get("arena"), "at": r.get("att")}
+      for r in games.values() if not r.get("bad") and r.get("date") and "gl" in r}
+Path("site/data/goals.json").write_text(json.dumps({"updated": now(), "games": gj}, ensure_ascii=False, separators=(",", ":")),
+                                        encoding="utf-8")
+print("goals.json: матчей с событиями:", len(gj))
+
 try:                                                    # календарь (будущие матчи); сбой не должен ронять обновление
     import khl_schedule as SC
     n = SC.update(sorted({t for m in ms for t in (m.home, m.away)}), ms[-1].season if ms else None)

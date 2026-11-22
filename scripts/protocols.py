@@ -46,7 +46,7 @@ PDF_DIR = Path(os.getenv("PDF_DIR", "protocols")) / SEASON_ID
 GAMES_PATH = PDF_DIR / "games.json"
 MISS_PATH = PDF_DIR / "_misses.json"
 PDF_URL = "https://www.khl.ru/pdf/{season}/{gid}/game-{gid}-ru.pdf"
-PARSER_VERSION = 3
+PARSER_VERSION = 4
 
 
 # ═════════════════════════ 1. СКАЧИВАНИЕ ═════════════════════════
@@ -259,7 +259,7 @@ def _two(m, a=1, b=3):
     return [int(m.group(a)), int(m.group(b))]
 
 
-def parse_text(text: str, partial: bool = False):
+def _parse_text_core(text: str, partial: bool = False):
     """Текст протокола -> (запись | None, причина). Пары везде (хозяева, гости).
     partial=True — режим «лайв»: разбираем и незаконченный протокол (rec[\"live\"]=True)."""
     t = text.replace("\xa0", " ")
@@ -352,6 +352,62 @@ def parse_text(text: str, partial: bool = False):
 
 def load_games() -> dict:
     return _load_json(GAMES_PATH, {})
+
+
+_NAME = r"[А-ЯЁA-Z][^\d,]*?"
+
+
+def _parse_events(text: str, rec: dict):
+    """Таблицы «ГОЛЫ» и «УДАЛЕНИЯ» протокола -> rec['gl'] (голы с ассистентами) и rec['pl'] (штрафы)."""
+    home, away = rec["home"], rec["away"]
+    gl, pl = [], []
+    m = re.search(r"\nГОЛЫ\n(.*?)(?=\nУДАЛЕНИЯ|\nВРАТАР|\Z)", text, re.S)
+    if m:
+        for ln in m.group(1).split("\n"):
+            g = re.match(r"^(\d+) (\d+) [–-] (\d+) (\d{1,3}:\d{2}) (\S+(?: \([^)]*\))?) (.+)$", ln.strip())
+            if not g:
+                continue
+            rest = g.group(6)
+            side = 0 if rest.startswith(home) else 1 if rest.startswith(away) else None
+            if side is None:
+                continue
+            rest = rest[len(home if side == 0 else away):].strip()
+            toks = rest.split()
+            while toks and re.fullmatch(r"\d+(,\d+)+", toks[-1]):      # списки игроков на льду
+                toks.pop()
+            parts = re.split(r"(?:(?<=\s)|^)(?=\d{1,2}\s+[А-ЯЁA-Z])", " ".join(toks))
+            names = []
+            for part in parts:
+                nm = re.match(r"^\d{1,2}\s+(.+)$", part.strip())
+                if nm:
+                    names.append(nm.group(1).strip())
+            if not names:
+                continue
+            gl.append({"t": g.group(4), "s": [int(g.group(2)), int(g.group(3))], "k": g.group(5), "h": side,
+                       "p": names[0], "a": names[1:3]})
+    m = re.search(r"\nУДАЛЕНИЯ\n(.*?)(?=\nВРАТАР|\nВСЕГО|\nОбновлено|\Z)", text, re.S)
+    if m:
+        side = -1
+        for ln in m.group(1).split("\n"):
+            ln = ln.strip()
+            if ln.startswith("# Период"):
+                side += 1
+                continue
+            r = re.match(r"^(\d+) (\d) (\d{1,2}:\d{2}) (?:(\d{1,2}) )?(.+?) (\d{1,2}) (.+)$", ln)
+            if r and side in (0, 1):
+                pl.append({"t": r.group(3), "pe": int(r.group(2)), "h": side, "p": r.group(5).strip(),
+                           "m": int(r.group(6)), "r": r.group(7).strip()})
+    rec["gl"], rec["pl"] = gl, pl
+
+
+def parse_text(text: str, partial: bool = False):
+    rec, why = _parse_text_core(text, partial)
+    if rec:
+        try:
+            _parse_events(text, rec)
+        except Exception as e:                       # события — приятное дополнение, не должны ломать разбор
+            log.warning("события не разобраны: %r", e)
+    return rec, why
 
 
 def parse_new(force: bool = False) -> dict:
