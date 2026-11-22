@@ -80,16 +80,28 @@ def _mins(t: str) -> int:
 def parse_match(html: str, mid: str, known: list[str], today: str) -> dict | None:
     """Страница матча -> запись для live.json (или None, если не сегодняшняя/не удалось разобрать)."""
     text, _ = text_of(html)
-    tm = re.search(r"<title>\s*([^<]+?)\s+[—-]\s+([^<]+?)\s+[—-]\s+КХЛ", html)
-    if not tm:
-        return None
-    home, away = norm(tm.group(1), known), norm(tm.group(2), known)
+    names = []                                        # команды — по ссылкам /team/<id>/ в шапке матча (не зависит от <title>)
+    for m in re.finditer(r'<a[^>]+href="[^"]*/team/\d+/?"[^>]*>(.*?)</a>', html, re.S):
+        n = re.sub(r"<[^>]+>", "", m.group(1)).strip()
+        if n and n not in names:
+            names.append(n)
+        if len(names) == 2:
+            break
+    if len(names) < 2:                                 # запасной вариант: заголовок страницы
+        tm = (re.search(r"<title>\s*Матч\s+(.+?)\s+[-—]\s+(.+?),\s*\d", html)
+              or re.search(r"<title>\s*([^<]+?)\s+[—-]\s+([^<]+?)\s+[—-]\s+КХЛ", html))
+        if not tm:
+            log.info("sportmail %s: не нашёл названия команд", mid)
+            return None
+        names = [tm.group(1), tm.group(2)]
+    home, away = norm(names[0], known), norm(names[1], known)
     if not home or not away:
-        log.warning("sportmail %s: не знаю команды %r / %r", mid, tm.group(1), tm.group(2))
+        log.warning("sportmail %s: не знаю команды %r / %r", mid, names[0], names[1])
         return None
     dm = re.search(r"(\d{2})\.(\d{2})\.(\d{4})", text)
     date = f"{dm.group(3)}-{dm.group(2)}-{dm.group(1)}" if dm else ""
     if date != today:
+        log.info("sportmail %s: %s — %s, дата %s (не сегодня)", mid, home, away, date or "?")
         return None
     started = "Матч не начался" not in text
     finished = "Матч завершен" in text or "Матч завершён" in text
@@ -103,6 +115,7 @@ def parse_match(html: str, mid: str, known: list[str], today: str) -> dict | Non
         if pm:
             per = [x.strip() for x in pm.group(1).strip(", ").split(",") if x.strip()]
     st = re.search(r"назначена на (\d{1,2}:\d{2})", text)
+    log.info("sportmail %s: %s — %s, начался=%s, завершён=%s", mid, home, away, started, finished)
     rec = {"id": int(mid), "source": "sportmail", "home": home, "away": away, "date": date, "score": score,
            "live": started and not finished, "started": started, "finished": finished,
            "status": "" if not started else ("Матч завершён" if finished else "")}
@@ -110,7 +123,7 @@ def parse_match(html: str, mid: str, known: list[str], today: str) -> dict | Non
         rec["time"] = st.group(1)
     if per:
         rec["periods"] = per
-    ar = re.search(r"Стадион: (.+?) (?:вместимость|Главный судья|\d)", text)
+    ar = re.search(r"Стадион: (.+?) (?:вместимость|Главный судья|Информация о матче|Превью|Трансляция|Протокол)", text)
     if ar:
         rec["arena"] = ar.group(1).strip()
     # ход матча: от «Источник:» до «Обозначения»
