@@ -23,14 +23,40 @@ class NotFound(Exception):
     pass
 
 
+import http.cookiejar, os, threading
+
+_JAR = http.cookiejar.CookieJar()
+_OPENER = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(_JAR))
+_LOCK = threading.Lock()
+
+
+def _get(url: str, extra: dict | None = None) -> str:
+    hdr = {**HDR, "Referer": "https://text.khl.ru/", **(extra or {})}
+    with _OPENER.open(urllib.request.Request(url, headers=hdr), timeout=25) as r:
+        return r.read().decode("utf-8", "replace")
+
+
+class Blocked(Exception):
+    pass
+
+
 def fetch(gid: int) -> str:
+    """Страница трансляции. Сервер сначала отвечает 307 с cookie и только потом отдаёт страницу — нужна «банка» куки."""
+    import http.cookiejar, os
+    jar = http.cookiejar.CookieJar()
+    op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+    hdr = {**HDR, "Referer": "https://www.khl.ru/"}
+    if os.getenv("KHL_COOKIE"):
+        hdr["Cookie"] = os.getenv("KHL_COOKIE")
     try:
-        with urllib.request.urlopen(urllib.request.Request(URL.format(gid), headers=HDR), timeout=25) as r:
+        with op.open(urllib.request.Request(URL.format(gid), headers=hdr), timeout=25) as r:
             return r.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as e:
-        if e.code in (403, 404, 410):
+        if e.code in (404, 410):
             raise NotFound(gid)
-        raise
+        raise Blocked(f"HTTP {e.code}")
+    except urllib.error.URLError as e:
+        raise Blocked(str(e.reason)[:120])
 
 
 class _L(HTMLParser):

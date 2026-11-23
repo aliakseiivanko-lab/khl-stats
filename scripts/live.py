@@ -129,13 +129,19 @@ def sm_scan(known, today):
     return out
 
 
+_WARNED: set = set()
+
+
 def khl_probe(gid, today, sched):
     try:
         return gid, KT.parse(KT.fetch(gid), gid, today, sched)
     except KT.NotFound:
         return gid, None
     except Exception as e:
-        log.warning("text.khl.ru %s: %r", gid, e)
+        key = type(e).__name__ + str(e)[:40]
+        if key not in _WARNED:                          # одну и ту же ошибку пишем в лог один раз
+            _WARNED.add(key)
+            log.warning("text.khl.ru %s: %r", gid, e)
         return gid, None
 
 

@@ -120,6 +120,19 @@ def parse_match(html: str, mid: str, known: list[str], today: str) -> dict | Non
             per = [x.strip() for x in pm.group(1).strip(", ").split(",") if x.strip()]
     st = re.search(r"назначена на (\d{1,2}:\d{2})", text)
     log.info("sportmail %s: %s — %s, начался=%s, завершён=%s", mid, home, away, started, finished)
+    if not started and sc:                            # в шапке уже есть счёт, хотя надпись «не начался» не поменялась
+        started = True
+    elapsed = None                                       # сколько минут прошло с начала по расписанию
+    if st and date:
+        try:
+            t0_ = dt.datetime.fromisoformat(f"{date}T{st.group(1).zfill(5)}").replace(tzinfo=dt.timezone(dt.timedelta(hours=3)))
+            elapsed = (dt.datetime.now(dt.timezone(dt.timedelta(hours=3))) - t0_).total_seconds() / 60
+        except Exception:
+            pass
+    if sc and not finished:                              # на странице есть счёт — игра началась, что бы ни писал статус
+        started = True
+    if started and not finished and elapsed is not None and (elapsed >= 210 or (per and len(per) >= 3 and elapsed >= 150)):
+        finished = True                                  # статус не обновился, но по времени и периодам игра уже закончена
     stale = False
     if not started and st:                             # страница не обновилась, хотя по времени игра уже идёт
         try:
@@ -128,6 +141,13 @@ def parse_match(html: str, mid: str, known: list[str], today: str) -> dict | Non
             if t0 + dt.timedelta(minutes=3) <= now <= t0 + dt.timedelta(hours=3, minutes=30):
                 started, stale = True, True
                 log.warning("sportmail %s: по времени игра идёт, а страница говорит «не начался» — источник отстаёт", mid)
+        except Exception:
+            pass
+    if started and not finished and st:
+        try:
+            t1 = dt.datetime.fromisoformat(f"{date}T{st.group(1).zfill(5)}").replace(tzinfo=dt.timezone(dt.timedelta(hours=3)))
+            if dt.datetime.now(dt.timezone(dt.timedelta(hours=3))) > t1 + dt.timedelta(hours=3, minutes=15):
+                finished = True                       # статус на странице не меняется — считаем по времени
         except Exception:
             pass
     rec = {"id": int(mid), "source": "sportmail", "home": home, "away": away, "date": date, "score": score,
