@@ -32,6 +32,7 @@ class Match:
     away_hits: Optional[int] = None
     home_blocks: Optional[int] = None     # блокированные броски (сделанные командой)
     away_blocks: Optional[int] = None
+    time: str = ""                       # время начала матча (по протоколу), для порядка игр внутри дня
 
 
 def _pov(m: Match, team: str) -> dict:

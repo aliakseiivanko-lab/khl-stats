@@ -482,7 +482,7 @@ def to_match(r: dict) -> Match | None:
         home_shots=hs, away_shots=as_,
         home_pp_goals=hpg, away_pp_goals=apg, home_pp_opps=hpo, away_pp_opps=apo,
         home_pim=hpim, away_pim=apim, home_shg=hsh, away_shg=ash,
-        home_fo=hfo, away_fo=afo, home_hits=hh, away_hits=ah, home_blocks=hb, away_blocks=ab)
+        home_fo=hfo, away_fo=afo, home_hits=hh, away_hits=ah, home_blocks=hb, away_blocks=ab, time=r.get("time") or "")
 
 
 def build_matches(games: dict | None = None) -> list[Match]:
