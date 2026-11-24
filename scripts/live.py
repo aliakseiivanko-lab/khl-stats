@@ -12,6 +12,7 @@ logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
 import protocols as P
 import live_sm as SM
 import live_khl as KT
+import live_cal as CAL
 
 log = logging.getLogger("live")
 ROOT = Path(__file__).resolve().parent.parent
@@ -106,6 +107,15 @@ def sched_today(today: str) -> list[tuple[str, str]]:
         return []
 
 
+def sched_times(today: str) -> dict:
+    """Время начала по расписанию (МСК): на text.khl.ru время может быть местным по арене."""
+    try:
+        g = json.loads((ROOT / "site/data/schedule.json").read_text(encoding="utf-8"))["games"]
+        return {(x["h"], x["a"]): x["t"] for x in g if x.get("d") == today}
+    except Exception:
+        return {}
+
+
 def sm_scan(known, today):
     """Ищет на sportmail.ru матчи КХЛ за сегодня: список ссылок -> страницы матчей."""
     links = []
@@ -134,7 +144,12 @@ _WARNED: set = set()
 
 def khl_probe(gid, today, sched):
     try:
-        return gid, KT.parse(KT.fetch(gid), gid, today, sched)
+        html = KT.fetch(gid)
+        rec = KT.parse(html, gid, today, sched)
+        if rec is None and not getattr(khl_probe, "sample", False):
+            khl_probe.sample = True
+            log.info("text.khl.ru %s: страница получена, но игра не распознана; начало текста: %r", gid, KT.lines_of(html)[:10])
+        return gid, rec
     except KT.NotFound:
         return gid, None
     except Exception as e:
@@ -180,6 +195,18 @@ def merge(khl_recs: list[dict], sm_recs: list[dict]) -> list[dict]:
     return out
 
 
+def add_cal(out: list[dict], cal: list[dict]) -> list[dict]:
+    """Блок «Сейчас» на календаре khl.ru — самый надёжный источник счёта и периода: им поправляем остальные."""
+    for c in cal:
+        g = next((x for x in out if (x["home"], x["away"]) == (c["home"], c["away"])), None)
+        if g is None:
+            out.append(dict(c))
+        elif g.get("source") != "khl":
+            g.update(score=c["score"], live=True, started=True, finished=False, status=c["status"])
+            g.pop("nodata", None)
+    return out
+
+
 def main():
     if not schedule_busy():
         log.info("по расписанию сейчас игр нет — выходим")
@@ -195,12 +222,26 @@ def main():
     deadline = time.time() + RUN_MIN * 60
     sm: dict[str, dict] = {}
     kh: dict[int, dict] = {}
-    was_live, seen = set(), {}
+    was_live, seen, cl = set(), {}, {}
     next_scan, idle, last_sig = 0.0, 0, None
     while time.time() < deadline:
         t0 = time.time()
         today = dt.datetime.now(MSK).date().isoformat()
         sched = sched_today(today)
+        khl_probe.sample = False
+        try:
+            cal_now = {(c["home"], c["away"]): c for c in CAL.parse(CAL.fetch(), known, today)}
+        except Exception as e:
+            cal_now = {}
+            if not getattr(main, "cal_warned", False):
+                main.cal_warned = True
+                log.warning("khl.ru/calendar недоступен: %r", e)
+        for pair, c in cal_now.items():
+            cl[pair] = c
+            was_live.add(pair)
+        for pair, c in cl.items():                       # матч пропал из блока «Сейчас» — значит закончился
+            if pair not in cal_now and c["live"]:
+                c.update(live=False, finished=True, status="Матч завершён")
         try:
             if t0 >= next_scan:                         # раз в несколько минут ищем новые матчи
                 for mid, rec in sm_scan(known, today).items():
@@ -225,7 +266,7 @@ def main():
                             sm[mid] = new
         except Exception as e:
             log.warning("цикл не удался: %r", e)
-        for src in (kh, sm):
+        for src in (kh, sm, cl):
             for key, rec in list(src.items()):
                 pair = (rec["home"], rec["away"])
                 if rec["live"]:
@@ -236,6 +277,11 @@ def main():
                     if t0 - seen[(id(src), key)] > 2700:
                         src.pop(key)
         out = merge(sorted(kh.values(), key=lambda r: (r.get("time") or "", r["id"])), list(sm.values()))
+        out = add_cal(out, [c for c in cl.values()])
+        stt = sched_times(today)
+        for g in out:
+            if (g["home"], g["away"]) in stt:
+                g["time"] = stt[(g["home"], g["away"])]
         busy = any(g.get("live") for g in out)
         sig = json.dumps(out, sort_keys=True, ensure_ascii=False)
         if busy or sig != last_sig:
