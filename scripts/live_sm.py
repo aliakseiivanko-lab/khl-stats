@@ -75,6 +75,38 @@ def norm(name: str, known: list[str]) -> str | None:
     return None
 
 
+_ROSTER: dict | None = None
+
+
+def _key(name: str):
+    w = name.replace("ё", "е").replace("Ё", "Е").replace("..", ".").split()
+    return (w[0].casefold(), w[1][0].casefold()) if len(w) >= 2 else None
+
+
+def roster() -> dict:
+    """{команда: {(фамилия, инициал)}} по протоколам сезона (data/*/players.json) — чтобы понять, чей игрок получил удаление."""
+    global _ROSTER
+    if _ROSTER is None:
+        _ROSTER = {}
+        try:
+            for f in (Path(__file__).resolve().parent.parent / "data").glob("*/players.json"):
+                for g in json.loads(f.read_text(encoding="utf-8")).values():
+                    for row in g.get("p", []):
+                        k = _key(row[2]) if len(row) > 2 and isinstance(row[2], str) else None
+                        if k:
+                            _ROSTER.setdefault(g["h"] if row[0] == 0 else g["a"], set()).add(k)
+        except Exception as e:
+            log.warning("sportmail: ростеры не загружены: %r", e)
+    return _ROSTER
+
+
+def team_of(player: str, home: str, away: str):
+    k = _key(player)
+    r = roster()
+    inh, ina = bool(k and k in r.get(home, ())), bool(k and k in r.get(away, ()))
+    return home if inh and not ina else away if ina and not inh else None
+
+
 def _mins(t: str) -> int:
     m, s = t.split(":")
     return int(m) * 60 + int(s)
@@ -160,7 +192,7 @@ def parse_match(html: str, mid: str, known: list[str], today: str) -> dict | Non
         rec["status"] = "Идёт матч"
     if per:
         rec["periods"] = per
-    ar = re.search(r"Стадион: (.+?) (?:вместимость|Главный судья|Информация о матче|Превью|Трансляция|Протокол)", text)
+    ar = re.search(r"Стадион: (.+?) (?:вместимость|Главный судья|Информация о матче|Все коэффициенты|Превью|Трансляция|Протокол)", text)
     if ar:
         rec["arena"] = ar.group(1).strip()
     # ход матча: от «Источник:» до «Обозначения»
@@ -169,7 +201,7 @@ def parse_match(html: str, mid: str, known: list[str], today: str) -> dict | Non
         ev_txt = ev_txt.split("Источник:", 1)[1].split("Обозначения", 1)[0]
         ev_txt = re.sub(r"^\s*\S+(?: \S+)?\s+(?=\d{1,2}:\d{2} )", "", ev_txt) if not re.match(r"\s*\d{1,2}:\d{2}", ev_txt) else ev_txt
     events = []
-    pat = re.compile(r"(\d{1,3}:\d{2}) (?:Гол! ?\((\d+) ?: ?(\d+)\) ?Шайбу забросил (.+?)(?= \d{1,3}:\d{2} (?:Гол|Удаление|Командный|Буллит)|$)"
+    pat = re.compile(r"(\d{1,3}:\d{2}) (?:Гол! ?\( ?(\d+) ?: ?(\d+) ?\) ?Шайбу забросил (.+?)(?= \d{1,3}:\d{2} (?:Гол|Удаление|Командный|Буллит)|$)"
                      r"|Удаление (.+?) ?, ?(\d+) мин|Командный штраф)")
     for m in pat.finditer(ev_txt):
         t = m.group(1)
@@ -177,10 +209,15 @@ def parse_match(html: str, mid: str, known: list[str], today: str) -> dict | Non
             who, ast = m.group(4).strip(), ""
             am = re.match(r"(.+?) \((.*)\)$", who)
             if am:
-                who, ast = am.group(1), am.group(2)
-            events.append({"t": t, "k": "goal", "s": [int(m.group(2)), int(m.group(3))], "p": who, "a": ast})
+                who, ast = am.group(1), am.group(2).replace("..", ".")
+            ev = {"t": t, "k": "goal", "s": [int(m.group(2)), int(m.group(3))], "p": who, "a": ast}
+            tm_ = team_of(who, home, away)
+            if tm_:
+                ev["h"] = 0 if tm_ == home else 1
+            events.append(ev)
         elif m.group(5):
-            events.append({"t": t, "k": "pen", "p": m.group(5).strip(), "m": int(m.group(6))})
+            events.append({"t": t, "k": "pen", "p": m.group(5).strip(), "m": int(m.group(6)),
+                           "team": team_of(m.group(5).strip(), home, away)})
         else:
             events.append({"t": t, "k": "pen", "p": "Командный штраф", "m": 2})
     events.sort(key=lambda e: _mins(e["t"]))
@@ -196,6 +233,10 @@ def parse_match(html: str, mid: str, known: list[str], today: str) -> dict | Non
         ps = re.search(r"(\d-й период|Перерыв|Овертайм|Буллиты)", seg)
         if ps:
             rec["status"] = ps.group(1)
+    pens = [e for e in events if e["k"] == "pen"]               # на странице нет командной статистики — считаем из хода матча
+    if pens and all(e.get("team") for e in pens):
+        rec["pen"] = [sum(1 for e in pens if e["team"] == x) for x in (home, away)]
+        rec["pim"] = [sum(e["m"] for e in pens if e["team"] == x) for x in (home, away)]
     # командная статистика
     stats = []
     sm = re.search(r"Статистика (.+?)(?: История личных встреч| Последние игры|$)", text)

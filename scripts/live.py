@@ -203,6 +203,9 @@ def merge(khl_recs: list[dict], sm_recs: list[dict]) -> list[dict]:
             for f in ("periods", "stats"):
                 if m.get(f):
                     g[f] = m[f]
+            for f in ("pen", "pim"):                    # удаления и штрафные минуты, посчитанные из хода матча
+                if m.get(f) and not g.get(f):
+                    g[f] = m[f]
             if not g.get("arena") and m.get("arena"):
                 g["arena"] = m["arena"]
         out.append(g)
