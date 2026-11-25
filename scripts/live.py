@@ -13,6 +13,7 @@ import protocols as P
 import live_sm as SM
 import live_khl as KT
 import live_cal as CAL
+import live_gz as GZ
 
 log = logging.getLogger("live")
 ROOT = Path(__file__).resolve().parent.parent
@@ -201,7 +202,7 @@ def add_cal(out: list[dict], cal: list[dict]) -> list[dict]:
         g = next((x for x in out if (x["home"], x["away"]) == (c["home"], c["away"])), None)
         if g is None:
             out.append(dict(c))
-        elif g.get("source") != "khl":
+        elif g.get("source") not in ("khl", "gazeta"):
             g.update(score=c["score"], live=True, started=True, finished=False, status=c["status"])
             g.pop("nodata", None)
     return out
@@ -216,19 +217,16 @@ def main():
                         for t in (m["home"], m["away"])})
     except Exception:
         known = []
-    finished_ids = {int(k) for k, r in P.load_games().items() if not r.get("bad")}
-    last = max(finished_ids, default=P.FIRST_ID)
-    cand = [g for g in range(last - SPAN, last + SPAN) if g not in finished_ids]
     deadline = time.time() + RUN_MIN * 60
     sm: dict[str, dict] = {}
-    kh: dict[int, dict] = {}
+    gz: dict[str, dict] = {}
+    gz_items: list[dict] = []
+    next_list = 0.0
     was_live, seen, cl = set(), {}, {}
     next_scan, idle, last_sig = 0.0, 0, None
     while time.time() < deadline:
         t0 = time.time()
         today = dt.datetime.now(MSK).date().isoformat()
-        sched = sched_today(today)
-        khl_probe.sample = False
         try:
             cal_now = {(c["home"], c["away"]): c for c in CAL.parse(CAL.fetch(), known, today)}
         except Exception as e:
@@ -247,17 +245,8 @@ def main():
                 for mid, rec in sm_scan(known, today).items():
                     if rec["live"] or (rec["finished"] and (rec["home"], rec["away"]) in was_live):
                         sm[mid] = rec
-                found = khl_many(cand, today, sched)
-                log.info("text.khl.ru: найдено игр за сегодня: %d (идут: %d)", len(found), sum(1 for r in found.values() if r["live"]))
-                for gid, rec in found.items():
-                    if rec["live"] or (rec["finished"] and (rec["home"], rec["away"]) in was_live):
-                        kh[gid] = rec
                 next_scan = t0 + RESCAN
             else:
-                for gid in [g for g, r in kh.items() if r["live"]]:
-                    _, rec = khl_probe(gid, today, sched)
-                    if rec:
-                        kh[gid] = rec
                 for mid, rec in list(sm.items()):
                     if rec["live"]:
                         new = SM.parse_match(SM.get(rec["_url"]), mid, known, today)
@@ -266,7 +255,31 @@ def main():
                             sm[mid] = new
         except Exception as e:
             log.warning("цикл не удался: %r", e)
-        for src in (kh, sm, cl):
+        try:                                            # Газета.Ру: страницы матчей с ходом игры
+            if t0 >= next_list:
+                gz_items = GZ.list_matches(GZ.get(GZ.LIST_URL), today, known)
+                next_list = t0 + 120
+                log.info("gazeta: матчей сегодня в списке: %d (с меткой Live: %d)", len(gz_items), sum(1 for x in gz_items if x.get("live")))
+            nowm = dt.datetime.now(MSK)
+            for it in gz_items:
+                pair = (it["home"], it["away"])
+                due = bool(it.get("live")) or pair in was_live
+                if not due and it.get("time"):
+                    try:
+                        st = dt.datetime.fromisoformat(f"{today}T{it['time']}").replace(tzinfo=MSK)
+                        due = st - dt.timedelta(minutes=10) <= nowm <= st + dt.timedelta(hours=4)
+                    except Exception:
+                        pass
+                if not due:
+                    continue
+                rec = GZ.parse_match(GZ.get(it["href"]), it)
+                if rec and (rec["live"] or (rec["finished"] and pair in was_live)):
+                    gz[it["mid"]] = rec
+        except Exception as e:
+            if not getattr(main, "gz_warned", False):
+                main.gz_warned = True
+                log.warning("gazeta.ru недоступна: %r", e)
+        for src in (gz, sm, cl):
             for key, rec in list(src.items()):
                 pair = (rec["home"], rec["away"])
                 if rec["live"]:
@@ -276,7 +289,7 @@ def main():
                     seen.setdefault((id(src), key), t0)
                     if t0 - seen[(id(src), key)] > 2700:
                         src.pop(key)
-        out = merge(sorted(kh.values(), key=lambda r: (r.get("time") or "", r["id"])), list(sm.values()))
+        out = merge(sorted(gz.values(), key=lambda r: (r.get("time") or "", r["id"])), list(sm.values()))
         out = add_cal(out, [c for c in cl.values()])
         stt = sched_times(today)
         for g in out:
