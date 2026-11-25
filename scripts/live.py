@@ -18,7 +18,7 @@ import live_gz as GZ
 log = logging.getLogger("live")
 ROOT = Path(__file__).resolve().parent.parent
 MSK = dt.timezone(dt.timedelta(hours=3))
-INTERVAL = int(os.getenv("LIVE_INTERVAL", "30"))        # период обновления, сек
+INTERVAL = int(os.getenv("LIVE_INTERVAL", "15"))        # период обновления, сек
 RUN_MIN = int(os.getenv("LIVE_RUN_MIN", "330"))         # максимум работы одного запуска, мин
 RESCAN = int(os.getenv("LIVE_RESCAN", "240"))           # как часто искать новые начавшиеся игры, сек
 SPAN = int(os.getenv("LIVE_SPAN", "45"))                # сколько id вокруг последнего сыгранного проверяем
@@ -243,6 +243,7 @@ def main():
     next_list = 0.0
     was_live, seen, cl = set(), {}, {}
     next_scan, idle, last_sig = 0.0, 0, None
+    chg: dict = {}                                      # когда запись игры реально менялась в последний раз
     while time.time() < deadline:
         t0 = time.time()
         today = dt.datetime.now(MSK).date().isoformat()
@@ -314,6 +315,12 @@ def main():
         for g in out:
             if (g["home"], g["away"]) in stt:
                 g["time"] = stt[(g["home"], g["away"])]
+        for g in out:
+            body = json.dumps({k: v for k, v in g.items() if k != "changed"}, sort_keys=True, ensure_ascii=False)
+            pair = (g["home"], g["away"])
+            if pair not in chg or chg[pair][0] != body:
+                chg[pair] = (body, dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"))
+            g["changed"] = chg[pair][1]
         busy = any(g.get("live") for g in out)
         sig = json.dumps(out, sort_keys=True, ensure_ascii=False)
         if busy or sig != last_sig:
