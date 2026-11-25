@@ -3,7 +3,7 @@
 Пока идут игры, раз в ~30 секунд качает незавершённые протоколы khl.ru, разбирает их и публикует
 live.json в ветку `live` репозитория (сайт читает его с raw.githubusercontent.com).
 Запускается из .github/workflows/live.yml; вне игровых окон завершается сразу."""
-import datetime as dt, json, logging, os, subprocess, sys, tempfile, time
+import datetime as dt, json, logging, os, re, subprocess, sys, tempfile, time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -170,6 +170,22 @@ def khl_many(ids, today, sched, workers=6):
     return out
 
 
+def progress(r: dict) -> tuple:
+    """Насколько «далеко» зашла игра по записи: нужно, чтобы устаревшая копия страницы не затирала свежую."""
+    m = re.search(r"(\d)-й", r.get("status") or "")
+    per = int(m.group(1)) if m else (4 if r.get("status") == "Овертайм" else 0)
+    sc = r.get("score") or [0, 0]
+    return (1 if r.get("finished") else 0, per, sc[0] + sc[1], len(r.get("events") or []), 1 if r.get("started") else 0)
+
+
+def keep_newer(old: dict | None, new: dict) -> dict:
+    """sportmail иногда отдаёт старую версию страницы (CDN): не даём записи откатиться назад."""
+    if old and progress(new) < progress(old):
+        log.info("sportmail %s: пришла устаревшая версия страницы %s — оставляю предыдущую", new.get("id"), progress(new))
+        return old
+    return new
+
+
 def merge(khl_recs: list[dict], sm_recs: list[dict]) -> list[dict]:
     """Официальная трансляция КХЛ — основа; sportmail дополняет (русские имена и минуты голов, штрафы, статистика)."""
     out, used = [], set()
@@ -244,7 +260,7 @@ def main():
             if t0 >= next_scan:                         # раз в несколько минут ищем новые матчи
                 for mid, rec in sm_scan(known, today).items():
                     if rec["live"] or (rec["finished"] and (rec["home"], rec["away"]) in was_live):
-                        sm[mid] = rec
+                        sm[mid] = keep_newer(sm.get(mid), rec)
                 next_scan = t0 + RESCAN
             else:
                 for mid, rec in list(sm.items()):
@@ -252,7 +268,7 @@ def main():
                         new = SM.parse_match(SM.get(rec["_url"]), mid, known, today)
                         if new:
                             new["_url"] = rec["_url"]
-                            sm[mid] = new
+                            sm[mid] = keep_newer(rec, new)
         except Exception as e:
             log.warning("цикл не удался: %r", e)
         try:                                            # Газета.Ру: страницы матчей с ходом игры
