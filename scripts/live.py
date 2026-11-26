@@ -89,9 +89,12 @@ def progress(r: dict) -> tuple:
 
 def keep_newer(old: dict | None, new: dict) -> dict:
     """sportmail иногда отдаёт старую версию страницы (CDN): не даём записи откатиться назад."""
-    if old and progress(new) < progress(old):
-        log.info("sportmail %s: пришла устаревшая версия страницы %s — оставляю предыдущую", new.get("id"), progress(new))
-        return old
+    if old:
+        po, pn = progress(old), progress(new)
+        per_back = pn[1] > 0 and pn[1] < po[1]                    # период сравниваем, только если он известен в новой версии
+        if pn[0] < po[0] or pn[2] < po[2] or pn[3] < po[3] or pn[4] < po[4] or per_back:
+            log.info("sportmail %s: пришла устаревшая версия страницы: было %s, пришло %s — оставляю предыдущую", new.get("id"), po, pn)
+            return old
     return new
 
 
@@ -121,6 +124,7 @@ def sm_scan(known, today):
 
 
 def main():
+    log.info("live.py v4: ajax + JSON страницы")
     if not schedule_busy():
         log.info("по расписанию сейчас игр нет — выходим")
         return
@@ -135,6 +139,8 @@ def main():
     next_scan, idle, last_sig, last_pub = 0.0, 0, None, 0.0
     chg: dict = {}                                      # когда запись игры реально менялась в последний раз
 
+    ajax_ok = [0]
+
     def refresh(item):
         mid, rec = item
         if rec.get("_ajax"):                           # то, что страница сама опрашивает каждые 10 с (HTML кэшируется CDN)
@@ -143,6 +149,7 @@ def main():
                                             "Accept": "application/json, text/plain, */*"})
                 new = SM.apply_ajax(rec, raw, mid, known)
                 if new:
+                    ajax_ok[0] += 1
                     return mid, keep_newer(rec, new)
             except Exception as e:
                 log.warning("sportmail %s: ajax %r", mid, e)
@@ -204,7 +211,8 @@ def main():
                 last_sig, last_pub = sig, t0
             except Exception as e:
                 log.warning("публикация не удалась: %r", e)
-        log.info("идёт игр: %d, в live.json: %d, цикл %.1f с", sum(1 for g in out if g.get("live")), len(out), time.time() - t0)
+        log.info("идёт игр: %d, в live.json: %d, цикл %.1f с, ajax-ответов: %d", sum(1 for g in out if g.get("live")), len(out), time.time() - t0, ajax_ok[0])
+        ajax_ok[0] = 0
         idle = 0 if (busy or schedule_busy()) else idle + 1
         if idle >= 3:
             break
