@@ -137,6 +137,15 @@ def main():
 
     def refresh(item):
         mid, rec = item
+        if rec.get("_ajax"):                           # то, что страница сама опрашивает каждые 10 с (HTML кэшируется CDN)
+            try:
+                raw = SM.get(rec["_ajax"], {"X-Requested-With": "XMLHttpRequest", "Referer": rec["_url"],
+                                            "Accept": "application/json, text/plain, */*"})
+                new = SM.apply_ajax(rec, raw, mid, known)
+                if new:
+                    return mid, keep_newer(rec, new)
+            except Exception as e:
+                log.warning("sportmail %s: ajax %r", mid, e)
         try:
             new = SM.parse_match(SM.get(rec["_url"]), mid, known, today)
         except Exception as e:

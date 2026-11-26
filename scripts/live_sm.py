@@ -14,10 +14,10 @@ ALIAS = {"торпедо нн": "Торпедо", "шанхай дрэгонс":
          "салават юлаев": "Салават Юлаев", "ак барс": "Ак Барс", "хк сочи": "ХК Сочи", "динамо м": "Динамо М"}
 
 
-def get(url: str) -> str:
+def get(url: str, extra: dict | None = None) -> str:
     u = url if url.startswith("http") else BASE + url
     u += ("&" if "?" in u else "?") + f"_={int(time.time())}"       # обход кэша CDN: страница матча должна быть свежей
-    hdr = {**HDR, "Cache-Control": "no-cache", "Pragma": "no-cache"}
+    hdr = {**HDR, "Cache-Control": "no-cache", "Pragma": "no-cache", **(extra or {})}
     with urllib.request.urlopen(urllib.request.Request(u, headers=hdr), timeout=25) as r:
         return r.read().decode("utf-8", "replace")
 
@@ -110,6 +110,123 @@ def team_of(player: str, home: str, away: str):
 def _mins(t: str) -> int:
     m, s = t.split(":")
     return int(m) * 60 + int(s)
+
+
+def state_of(html: str):
+    """JSON, который страница матча кладёт в window.__PRELOADED_STATE__PAGE (счёт, статус, события трансляции)."""
+    tag = "__PRELOADED_STATE__PAGE = "
+    i = html.find(tag)
+    if i < 0:
+        return None
+    try:
+        return json.JSONDecoder().raw_decode(html[i + len(tag):])[0]
+    except ValueError:
+        return None
+
+
+def ajax_url(html: str) -> str | None:
+    """Адрес, который страница сама опрашивает каждые ~10 секунд (HTML при этом кэшируется на CDN)."""
+    m = re.search(r'"refresh":\s*\d+,\s*"url":\s*"([^"]+)"', html)
+    return BASE + m.group(1).replace("\\/", "/") if m else None
+
+
+def _walk(o):
+    stack = [o]
+    while stack:
+        x = stack.pop()
+        yield x
+        if isinstance(x, dict):
+            stack.extend(x.values())
+        elif isinstance(x, list):
+            stack.extend(x)
+
+
+def read_state(state, mid, home: str, away: str, known: list[str]):
+    """Счёт, статус и события из JSON (страницы или ajax-ответа). None — если в JSON этого нет."""
+    if not state:
+        return None
+    info: dict = {}
+    for x in _walk(state):                                       # шапка нужного матча: teams + status, id == mid
+        if isinstance(x, dict) and isinstance(x.get("teams"), list) and len(x["teams"]) == 2 \
+                and isinstance(x.get("status"), dict) and str(x.get("id", mid)) == str(mid):
+            sc = [str(t.get("score", "")) for t in x["teams"]]
+            if all(v.isdigit() for v in sc):
+                info["score"] = [int(v) for v in sc]
+            info["status"] = x["status"].get("short") or ""
+            info["played"] = bool(x["status"].get("is_played"))
+            break
+    posts = None
+    for x in _walk(state):
+        if isinstance(x, dict) and isinstance(x.get("posts"), (dict, list)):
+            posts = x["posts"]
+            break
+    if posts is not None:
+        items = [i for v in (posts.values() if isinstance(posts, dict) else [posts]) if isinstance(v, list) for i in v]
+        evs = []
+        for it in items:
+            if not isinstance(it, dict) or not isinstance(it.get("text"), dict):
+                continue
+            tx, t = it["text"], str(it.get("time") or "")
+            if not re.match(r"\d{1,3}:\d{2}$", t):
+                continue
+            if it.get("type") == "goal":
+                sc = re.match(r"(\d+)\s*:\s*(\d+)", str(tx.get("score") or ""))
+                if not sc:
+                    continue
+                ev = {"t": t, "k": "goal", "s": [int(sc.group(1)), int(sc.group(2))], "p": (tx.get("player") or "").strip(),
+                      "a": ", ".join(x for x in (tx.get("player1"), tx.get("player2")) if x).replace("..", "."), "n": it.get("num")}
+                tm_ = team_of(ev["p"], home, away)
+                if tm_:
+                    ev["h"] = 0 if tm_ == home else 1
+                evs.append(ev)
+            elif it.get("type") == "penalty":
+                mm = re.search(r"\d+", str(tx.get("descr") or ""))
+                who = (tx.get("player") or "").strip() or "Командный штраф"
+                tm_ = team_of(who, home, away)
+                if not tm_ and tx.get("team"):
+                    n = norm(str(tx["team"]), known)
+                    tm_ = n if n in (home, away) else None
+                evs.append({"t": t, "k": "pen", "p": who, "m": int(mm.group(0)) if mm else 2, "team": tm_, "n": it.get("num")})
+        evs.sort(key=lambda e: (e.get("n") or 0, _mins(e["t"])))
+        info["events"] = evs
+    return info or None
+
+
+def pen_stats(rec: dict) -> None:
+    pens = [e for e in rec.get("events", []) if e["k"] == "pen"]
+    if pens and all(e.get("team") for e in pens):
+        rec["pen"] = [sum(1 for e in pens if e["team"] == x) for x in (rec["home"], rec["away"])]
+        rec["pim"] = [sum(e["m"] for e in pens if e["team"] == x) for x in (rec["home"], rec["away"])]
+
+
+def overlay(rec: dict, info: dict) -> dict:
+    """Накладывает свежие данные из JSON на запись матча."""
+    if info.get("score"):
+        rec["score"] = info["score"]
+        rec.pop("nodata", None)
+    if info.get("events") is not None and len(info["events"]) >= len(rec.get("events", [])):
+        rec["events"] = info["events"][-40:]
+        pen_stats(rec)
+    if info.get("played") and rec.get("started"):
+        rec.update(finished=True, live=False, status="Матч завершён")
+    elif rec.get("live") and info.get("status"):
+        rec["status"] = info["status"]
+    return rec
+
+
+def apply_ajax(rec: dict, raw: str, mid: str, known: list[str]) -> dict | None:
+    """Ответ ajax-эндпоинта страницы -> обновлённая копия записи (None, если формат не распознан)."""
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        log.warning("sportmail %s: ajax не JSON (%d байт): %.200r", mid, len(raw), raw)
+        return None
+    info = read_state(data, mid, rec["home"], rec["away"], known)
+    if not info:
+        log.warning("sportmail %s: в ajax-ответе не нашёл счёт/события, ключи: %s", mid,
+                    list(data)[:12] if isinstance(data, dict) else type(data).__name__)
+        return None
+    return overlay(dict(rec), info)
 
 
 def parse_match(html: str, mid: str, known: list[str], today: str) -> dict | None:
@@ -237,6 +354,12 @@ def parse_match(html: str, mid: str, known: list[str], today: str) -> dict | Non
     if pens and all(e.get("team") for e in pens):
         rec["pen"] = [sum(1 for e in pens if e["team"] == x) for x in (home, away)]
         rec["pim"] = [sum(e["m"] for e in pens if e["team"] == x) for x in (home, away)]
+    info = read_state(state_of(html), mid, home, away, known)       # JSON страницы точнее разбора текста
+    if info:
+        overlay(rec, info)
+    ajx = ajax_url(html)
+    if ajx:
+        rec["_ajax"] = ajx
     # командная статистика
     stats = []
     sm = re.search(r"Статистика (.+?)(?: История личных встреч| Последние игры|$)", text)
