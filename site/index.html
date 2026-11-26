@@ -264,10 +264,14 @@ const st=n=>{const k=Math.min(1,(n-t0)/800),e=1-Math.pow(1-k,3);b.textContent=(v
 const REPO=(()=>{const m=location.hostname.match(/^([^.]+)\.github\.io$/),r=location.pathname.split('/')[1];return m&&r?{o:m[1],r}:null})();
 const LIVE_URL=(document.querySelector('meta[name=live-url]')||{}).content||(REPO?`https://raw.githubusercontent.com/${REPO.o}/${REPO.r}/live/live.json`:'data/live.json');
 let LV={games:[],updated:null,ok:false,sig:''},lvAt=0;
-async function loadLive(){lvAt=Date.now();let d=null;try{const r=await fetch(LIVE_URL+'?t='+Date.now(),{cache:'no-store'});if(r.ok)d=await r.json()}catch(e){}
+const LIVE_API=(REPO&&!document.querySelector('meta[name=live-url]'))?`https://api.github.com/repos/${REPO.o}/${REPO.r}/contents/live.json?ref=live`:null;
+async function getLive(){
+if(LIVE_API){try{const r=await fetch(LIVE_API,{headers:{Accept:'application/vnd.github.raw+json'},cache:'no-cache'});if(r.ok){const d=await r.json();d._src='api';return d}}catch(e){}}
+const r=await fetch(LIVE_URL+'?t='+Date.now(),{cache:'no-store'});if(!r.ok)return null;const d=await r.json();d._src='raw';return d}
+async function loadLive(){lvAt=Date.now();let d=null;try{d=await getLive()}catch(e){}
 const sig=d?JSON.stringify(d.games||[])+(d.updated||''):'';
 if(!d){if(LV.ok){LV.ok=false;render()}return}
-const ch=sig!==LV.sig||!LV.ok;LV={games:d.games||[],updated:d.updated,ok:true,sig};if(ch)render()}
+const ch=sig!==LV.sig||!LV.ok;LV={games:d.games||[],updated:d.updated,ok:true,sig,src:d._src};if(ch)render()}
 const liveOf=(h,a)=>LV.games.find(g=>g.home===h&&g.away===a);
 const startMs=f=>f.t?Date.parse(`${f.d}T${f.t}:00+03:00`):NaN;
 const inPlay=f=>{if(f.m)return false;const g=liveOf(f.h,f.a);if(g)return !!g.live;const s=startMs(f),n=Date.now();return n>=s&&n<=s+(LV.ok?40*6e4:3*36e5)};
@@ -287,13 +291,13 @@ const lv=(()=>{let pv=[0,0];return (g.events||[]).map((e,i)=>({...e,i})).sort((a
 const bar=r=>{const a=r.a||0,b=r.b||0,t=a+b||2;return `<div class="cl">${r.l}</div><div class="cmp"><b>${r.fa}</b><div class="bar"><i class="l" style="flex:${a||(t===2?1:.02)}"></i><i class="r" style="flex:${b||(t===2?1:.02)}"></i></div><b>${r.fb}</b></div>`};
 const stale=LV.updated&&Date.now()-new Date(LV.updated)>180000;
 return `<div class="lvh"><div class="lt">${cr(g.home,60)}<b>${esc(g.home)}</b></div><div class="ls"><div class="sc">${g.nodata?'–:–':g.score[0]+':'+g.score[1]}</div><div class="st">${g.live?'<i class="lv"></i>Идёт матч':'Матч завершён'}${g.status&&g.status!=='Идёт матч'&&g.status!=='Матч завершён'?' · '+esc(g.status):''}${g.periods?'<br>по периодам: '+g.periods.map(esc).join(' · '):''}</div></div><div class="lt">${cr(g.away,60)}<b>${esc(g.away)}</b></div></div>
-<div class="lvf m">Данные на ${clk(LV.updated)}${stale?' · <b style="color:var(--a)">давно не обновлялись</b>':''}${g.live?` · обновление через <b id="lvcd">30</b> с`:''} <button data-lvr>Обновить</button></div>
+<div class="lvf m">Данные на ${clk(LV.updated)}${LV.src==='raw'?' (кэш GitHub)':''}${g.changed?' · изменения в '+clk(g.changed):''}${stale?' · <b style="color:var(--a)">давно не обновлялись</b>':''}${g.live?` · обновление через <b id="lvcd">30</b> с`:''} <button data-lvr>Обновить</button></div>
 <div class="card lvs">${rows.length?rows.map(bar).join(''):'<p class="m">Статистика появится, как только в протоколе будут данные.</p>'}</div>
 ${evh}${g.nodata?'<p class="m">Источник данных пока не передаёт счёт этого матча — страница обновится сама, как только он появится.</p>':''}<p class="m">${g.arena?esc(g.arena)+(g.att?' · '+g.att+' зрителей':'')+' · ':''}Источник: ${g.source==='gazeta'?'Газета.Ру':g.source==='khl'?'текстовая трансляция КХЛ':'sportmail.ru'}, обновляется автоматически.</p>`+back}
 document.addEventListener('click',e=>{if(e.target.closest('[data-lvr]'))loadLive()});
 setInterval(()=>{if(document.hidden)return;const act=LV.games.some(g=>g.live)||P().view==='live',age=Date.now()-lvAt;
-const cd=document.getElementById('lvcd');if(cd)cd.textContent=Math.max(0,30-Math.floor(age/1000));
-if(age>=(act?30000:300000))loadLive()},1000);
+const cd=document.getElementById('lvcd');if(cd)cd.textContent=Math.max(0,15-Math.floor(age/1000));
+if(age>=(act?15000:300000))loadLive()},1000);
 
 const teamQuick=t=>{const td=todayS(),all=fixtures().filter(f=>f.h===t||f.a===t),past=all.filter(f=>f.m).slice(-3).reverse(),next=all.filter(f=>!f.m&&f.d>=td).slice(0,3),dd=d=>d.slice(8)+'.'+d.slice(5,7);
 const row=f=>{const h=f.h===t,o=h?f.a:f.h,ch=`<span class="ha${h?'':' aw'}">${h?'Дом':'Выезд'}</span>`;let r;
