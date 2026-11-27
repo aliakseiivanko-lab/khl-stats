@@ -98,7 +98,7 @@ def calc(rows: list[dict]) -> Optional[dict]:
     if not gp:
         return None
     wins = [r for r in rows if r["gf"] > r["ga"]]
-    pts = sum((2 if r["ot"] else 3) if r["gf"] > r["ga"] else (1 if r["ot"] else 0)
+    pts = sum(2 if r["gf"] > r["ga"] else (1 if r["ot"] else 0)
               for r in rows)
     sh = _ratio(rows, "gfg", "sf")
     sv = _ratio(rows, "gag", "sa")
