@@ -454,16 +454,16 @@ return !ra.length||!rb.length?h+'<p>У одной из команд нет ма�
 
 const EAST=['авангард','ак барс','автомобилист','металлург','трактор','салават','сибирь','барыс','амур','адмирал','нефтехим'];
 const confOf=t=>EAST.some(k=>t.toLowerCase().startsWith(k))?'e':'w';
-function standings(ts,s){return ts.map(t=>{const o={t,gp:0,w:0,wo:0,lo:0,l:0,gf:0,ga:0,pts:0};
+function standings(ts,s){return ts.map(t=>{const o={t,gp:0,w:0,wo:0,wb:0,lb:0,lo:0,l:0,gf:0,ga:0,pts:0};
 for(const x of sel(t,null,'all',s)){o.gp++;o.gf+=x.gfg;o.ga+=x.gag;
-if(x.gf>x.ga){if(x.ot){o.wo++}else{o.w++}o.pts+=2}else if(x.ot){o.lo++;o.pts++}else o.l++}return o})
-.sort((a,b)=>b.pts-a.pts||b.w-a.w||(b.w+b.wo)-(a.w+a.wo)||(b.gf-b.ga)-(a.gf-a.ga)||b.gf-a.gf)}
+if(x.gf>x.ga){if(x.so)o.wb++;else if(x.ot)o.wo++;else o.w++;o.pts+=2}else if(x.ot){if(x.so)o.lb++;else o.lo++;o.pts++}else o.l++}return o})
+.sort((a,b)=>b.pts-a.pts||b.w-a.w||(b.w+b.wo+b.wb)-(a.w+a.wo+a.wb)||(b.gf-b.ga)-(a.gf-a.ga)||b.gf-a.gf)}
 function vTable(p){const c=p.conf||'all',s=season(),ts=c==='all'?T:T.filter(t=>confOf(t)===c),rows=standings(ts,s),
 name={all:'Общая таблица',w:'Западная конференция',e:'Восточная конференция'}[c]||'Общая таблица';
 return `<h2>${name}</h2><div class="m">Сезон ${s} · ${rows.length} команд</div>`+chips([['all','Общая'],['w','Запад'],['e','Восток']],c,'conf',p)+
-`<div class="card"><table class="tt"><tr><th>Команда</th><th>О</th><th>И</th><th>В</th><th>ВО</th><th>ПО</th><th>П</th><th>Ш</th><th>РШ</th></tr>`+
-rows.map((o,i)=>`<tr><td><span class="rk r${i<3?i+1:0}">${i+1}</span>${cr(o.t,24)}<a href="#" style="color:inherit" ${go({view:'team',t:o.t,venue:'all',win:'s'},{})}>${esc(o.t)}</a></td><td><b>${o.pts}</b></td><td>${o.gp}</td><td>${o.w}</td><td>${o.wo}</td><td>${o.lo}</td><td>${o.l}</td><td>${o.gf}-${o.ga}</td><td>${sgn(o.gf-o.ga)}</td></tr>`).join('')+'</table></div>'+
-'<p class="m">О — очки, И — игры, В — победы в основное время, ВО — победы в ОТ или по буллитам, ПО — поражения в ОТ или по буллитам, П — поражения в основное время. Ш — забитые и пропущенные (без победного буллита), РШ — разница. Места: очки, затем победы в основное время, все победы, разница шайб, забитые.</p>'}
+`<div class="card"><table class="tt"><tr><th>Команда</th><th>О</th><th>И</th><th>В</th><th>ВО</th><th>ВБ</th><th>ПБ</th><th>ПО</th><th>П</th><th>Ш</th><th>РШ</th></tr>`+
+rows.map((o,i)=>`<tr><td><span class="rk r${i<3?i+1:0}">${i+1}</span>${cr(o.t,24)}<a href="#" style="color:inherit" ${go({view:'team',t:o.t,venue:'all',win:'s'},{})}>${esc(o.t)}</a></td><td><b>${o.pts}</b></td><td>${o.gp}</td><td>${o.w}</td><td>${o.wo}</td><td>${o.wb}</td><td>${o.lb}</td><td>${o.lo}</td><td>${o.l}</td><td>${o.gf}-${o.ga}</td><td>${sgn(o.gf-o.ga)}</td></tr>`).join('')+'</table></div>'+
+'<p class="m">О — очки, И — игры, В — победы в основное время, ВО — победы в овертайме, ВБ — победы по буллитам, ПБ — поражения по буллитам, ПО — поражения в овертайме, П — поражения в основное время. За победу в любом виде 2 очка, за поражение в ОТ или по буллитам 1. Ш — забитые и пропущенные (без победного буллита), РШ — разница. Места: очки, затем победы в основное время, все победы, разница шайб, забитые.</p>'}
 function vList(){return `${liveCards()}${strip()}<div class="h2c"><div class="hc1">${recent()}</div><div class="hc2"><div class="row"><button ${go({view:'table',conf:'all'},{})}>🏆 Турнирная таблица</button><button ${go({view:'cal',st:'all'},{})}>📅 Календарь лиги</button><button ${go({view:'league',cat:'pts',venue:'all',win:'s'},{})}>📊 Статистика лиги</button><button data-go="view=vs&a=&b=&venue=all&win=s">⚔️ Сравнить две команды</button></div>
 <input id="q" type="search" placeholder="Найти команду…"><div class="grid" id="tg">${T.map(t=>`<button ${go({view:'team',t,venue:'all',win:'s'},{})}>${cr(t,38)}<span>${esc(t)}</span></button>`).join('')}</div></div></div>`}
 
