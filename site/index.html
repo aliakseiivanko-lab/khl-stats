@@ -178,7 +178,7 @@ function sel(t,n,v,s){let ms=M.filter(m=>(m.home===t||m.away===t)&&(!s||m.season
 if(v==='home')ms=ms.filter(m=>m.home===t);if(v==='away')ms=ms.filter(m=>m.away===t);
 ms.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);if(n==='m'){const S=SELM||new Set();ms=ms.filter(m=>S.has(m.date))}else if(n)ms=ms.slice(-n);return ms.map(m=>pov(m,t))}
 function calc(r){const n=r.length;if(!n)return null;const w=r.filter(x=>x.gf>x.ga).length,
-pts=sum(r.map(x=>x.gf>x.ga?(x.ot?2:3):(x.ot?1:0))),sh=ratio(r,'gfg','sf'),sv=ratio(r,'gag','sa'),fo=pair(r,'fo','foa'),shg=ok(r,'shg');
+pts=sum(r.map(x=>x.gf>x.ga?2:(x.ot?1:0))),sh=ratio(r,'gfg','sf'),sv=ratio(r,'gag','sa'),fo=pair(r,'fo','foa'),shg=ok(r,'shg');
 return{gp:n,w,l:n-w,ot:r.filter(x=>x.ot).length,pts_pg:pts/n,gf:sum(r.map(x=>x.gfg))/n,ga:sum(r.map(x=>x.gag))/n,
 sho:r.filter(x=>x.ga===0&&!x.so).length,sf:avg(r,'sf'),sa:avg(r,'sa'),sh:sh==null?null:100*sh,sv:sv==null?null:100*(1-sv),
 pp2:pair(r,'ppg','ppo'),pk2:pair(r,'ppga','ppoa'),shgS:shg.length?sum(shg.map(x=>x.shg)):null,pim:avg(r,'pim'),
@@ -456,7 +456,7 @@ const EAST=['авангард','ак барс','автомобилист','ме�
 const confOf=t=>EAST.some(k=>t.toLowerCase().startsWith(k))?'e':'w';
 function standings(ts,s){return ts.map(t=>{const o={t,gp:0,w:0,wo:0,lo:0,l:0,gf:0,ga:0,pts:0};
 for(const x of sel(t,null,'all',s)){o.gp++;o.gf+=x.gfg;o.ga+=x.gag;
-if(x.gf>x.ga){if(x.ot){o.wo++;o.pts+=2}else{o.w++;o.pts+=3}}else if(x.ot){o.lo++;o.pts++}else o.l++}return o})
+if(x.gf>x.ga){if(x.ot){o.wo++}else{o.w++}o.pts+=2}else if(x.ot){o.lo++;o.pts++}else o.l++}return o})
 .sort((a,b)=>b.pts-a.pts||b.w-a.w||(b.w+b.wo)-(a.w+a.wo)||(b.gf-b.ga)-(a.gf-a.ga)||b.gf-a.gf)}
 function vTable(p){const c=p.conf||'all',s=season(),ts=c==='all'?T:T.filter(t=>confOf(t)===c),rows=standings(ts,s),
 name={all:'Общая таблица',w:'Западная конференция',e:'Восточная конференция'}[c]||'Общая таблица';
